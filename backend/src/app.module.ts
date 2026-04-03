@@ -1,3 +1,4 @@
+import { CampaignController } from './modules/campaigns/campaign.controller';
 import { CampaignService } from './modules/campaigns/campaign.service';
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
@@ -40,7 +41,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     AuthModule
   ],
   controllers: [AppController],
-  providers: [
-    CampaignService, AppService],
+  providers: [AppService],
 })
 export class AppModule { }
