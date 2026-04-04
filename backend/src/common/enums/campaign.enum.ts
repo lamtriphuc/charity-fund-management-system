@@ -4,7 +4,7 @@ export enum CampaignType {
 }
 
 export enum CampaignStatus {
-    ACTIVE = 'Active',
-    CLOSED = 'Closed',
-    SUSPENDED = 'Suspended',
+    ACTIVE = 'ACTIVE',
+    CLOSED = 'CLOSED',
+    SUSPENDED = 'SUSPENDED',
 }
