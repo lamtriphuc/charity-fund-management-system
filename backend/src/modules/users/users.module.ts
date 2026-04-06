@@ -5,9 +5,10 @@ import { User } from './entities/user.entity';
 import { DatabaseSeederService } from './database-seeder.service';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
+import { KycProfile } from './entities/kyc-profile.entity';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Role, User])],
+    imports: [TypeOrmModule.forFeature([Role, User, KycProfile])],
     providers: [UserService, DatabaseSeederService],
     controllers: [UserController],
     exports: [TypeOrmModule, UserService]

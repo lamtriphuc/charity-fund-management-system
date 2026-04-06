@@ -22,9 +22,6 @@ export class User {
     @Column({ name: 'kyc_status', type: 'varchar', default: 'Pending' })
     kycStatus: string; // Pending, Verified, Rejected
 
-    @Column({ name: 'bank_account_info', type: 'jsonb', nullable: true })
-    bankAccountInfo: Record<string, any>; // { bankName, accountNumber, accountName }
-
     @Column({ name: 'refresh_token', type: 'varchar', nullable: true })
     refreshToken: string | null;
 }

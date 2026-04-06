@@ -1,15 +1,19 @@
 import { IsEnum, IsObject, IsOptional, IsString } from 'class-validator';
 import { KycStatus } from '../../../common/enums/kyc-status.enum'; // File enum bạn đã tạo ở bài trước
+import { KycProfileStatus } from 'src/common/enums/kyc-profile-status.enum';
 
 export class SubmitKycDto {
-    @IsObject({ message: 'Thông tin ngân hàng phải là một Object' })
     @IsOptional()
-    bankAccountInfo?: Record<string, any>; // VD: { bankName: "MBBank", accountNumber: "123", accountName: "Nguyen Van A" }
+    bankAccountInfo?: any; // VD: { bankName: "MBBank", accountNumber: "123", accountName: "Nguyen Van A" }
 }
 
 export class ApproveKycDto {
-    @IsEnum(KycStatus, { message: 'Trạng thái KYC không hợp lệ' })
-    kycStatus: KycStatus;
+    @IsEnum(KycProfileStatus, { message: 'Trạng thái KYC không hợp lệ' })
+    status: KycProfileStatus;
+
+    @IsString()
+    @IsOptional()
+    rejectionReason?: string;
 
     @IsString()
     @IsOptional()
