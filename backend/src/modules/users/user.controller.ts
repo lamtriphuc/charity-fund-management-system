@@ -24,29 +24,18 @@ export class UserController {
     @Patch('me/kyc')
     @UseGuards(AuthGuard('jwt'))
     @UseInterceptors(
-        FileFieldsInterceptor(
-            [
-                { name: 'frontImage', maxCount: 1 },
-                { name: 'backImage', maxCount: 1 },
-            ],
-            {
-                storage: diskStorage({
-                    destination: './uploads/kyc',
-                    filename: (req, file, cb) => {
-                        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-                        cb(null, `kyc-${uniqueSuffix}${extname(file.originalname)}`);
-                    },
-                }),
-            }
-        )
+        FileFieldsInterceptor([
+            { name: 'frontImage', maxCount: 1 },
+            { name: 'backImage', maxCount: 1 },
+        ])
     )
     submitKyc(
         @CurrentUser() user: any,
         @Body() dto: SubmitKycDto,
         @UploadedFiles() files: { frontImage?: Express.Multer.File[], backImage?: Express.Multer.File[] }
     ) {
-        const frontPath = files?.frontImage?.[0]?.path || '';
-        const backPath = files?.backImage?.[0]?.path || '';
+        const frontPath = files?.frontImage?.[0];
+        const backPath = files?.backImage?.[0];
         return this.usersService.submitKyc(user.id, dto, frontPath, backPath);
     }
 

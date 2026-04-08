@@ -1,6 +1,6 @@
 import { Type } from "class-transformer";
 import { IsDate, IsEnum, IsIn, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from "class-validator";
-import { CampaignStatus, CampaignType } from "src/common/enums/campaign.enum";
+import { CampaignStatus, CampaignType } from "src/modules/campaigns/dto/campaign.enum";
 
 export class CreateCampaignDto {
     @IsString()

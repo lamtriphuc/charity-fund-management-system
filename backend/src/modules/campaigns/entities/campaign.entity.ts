@@ -1,4 +1,4 @@
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
 @Entity('campaigns')
 export class Campaign {
@@ -20,9 +20,18 @@ export class Campaign {
     @Column({ type: 'varchar', default: 'Active' })
     status: string; // Active, Closed, Suspended
 
+    @Column({ name: 'current_amount', type: 'numeric', default: 0 })
+    currentAmount: number;
+
     @Column({ name: 'start_date', type: 'timestamp' })
     startDate: Date;
 
     @Column({ name: 'end_date', type: 'timestamp' })
-    endDate: Date
+    endDate: Date;
+
+    @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
+    createdAt: Date;
+
+    @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
+    updatedAt: Date;
 }

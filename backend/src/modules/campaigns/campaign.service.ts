@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Campaign } from './entities/campaign.entity';
 import { Repository } from 'typeorm';
 import { CreateCampaignDto, GetCampaignsQueryDto, UpdateCampaignStatusDto } from './dto/campaign.dto';
-import { CampaignStatus } from 'src/common/enums/campaign.enum';
+import { CampaignStatus } from 'src/modules/campaigns/dto/campaign.enum';
 
 @Injectable()
 export class CampaignService {

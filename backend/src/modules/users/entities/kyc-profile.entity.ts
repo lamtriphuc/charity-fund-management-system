@@ -12,13 +12,13 @@ export class KycProfile {
     user: User;
 
     @Column({ name: 'front_image_url', type: 'varchar' })
-    frontImageUrl: string; // Link Cloudinary mặt trước
+    frontImageUrl: string | null; // Link Cloudinary mặt trước
 
     @Column({ name: 'back_image_url', type: 'varchar' })
-    backImageUrl: string;  // Link Cloudinary mặt sau
+    backImageUrl: string | null; // Link Cloudinary mặt sau
 
     @Column({ name: 'bank_account_info', type: 'jsonb', nullable: true })
-    bankAccountInfo: Record<string, any>;
+    bankAccountInfo: Record<string, any> | null;
 
     @Column({ type: 'varchar', default: 'PENDING' })
     status: string; // PENDING, APPROVED, REJECTED

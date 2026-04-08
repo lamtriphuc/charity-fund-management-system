@@ -6,9 +6,9 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
-import { Role } from '../users/entities/role.entity';
-import { RoleName } from 'src/common/enums/role.enum';
+import { RoleName } from 'src/modules/users/dto/role.enum';
 import { KycStatus } from 'src/common/enums/kyc-status.enum';
+import { Role } from '../users/entities/role.entity';
 
 @Injectable()
 export class AuthService {

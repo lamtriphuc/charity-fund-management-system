@@ -4,11 +4,15 @@ import { Disbursement } from './entities/disbursement.entity';
 import { DisbursementProof } from './entities/disbursement-proof.entity';
 import { Donation } from './entities/donation.entity';
 import { SupportRequest } from './entities/support-request.entity';
+import { Campaign } from '../campaigns/entities/campaign.entity';
+import { User } from '../users/entities/user.entity';
+import { DonationController } from './donations.controller';
+import { DonationService } from './donation.service';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Disbursement, DisbursementProof, Donation, SupportRequest])],
-    providers: [],
-    controllers: [],
+    imports: [TypeOrmModule.forFeature([Disbursement, DisbursementProof, Donation, SupportRequest, Campaign, User])],
+    providers: [DonationService],
+    controllers: [DonationController],
     exports: [TypeOrmModule]
 })
 export class TransactionsModule { }
