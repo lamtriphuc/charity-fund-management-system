@@ -1,11 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { SupportRequest } from "./support-request.entity";
 import { DataSource, Repository } from "typeorm";
 import { Campaign } from "../campaigns/entities/campaign.entity";
 import { CampaignVolunteer } from "../campaigns/entities/campaign-volunteer.entity";
 import { CreateSupportRequestDto, SupportRequestStatus, UpdateSupportRequestStatusDto } from "./dto/support-request.dto";
-import { Disbursement } from "../transactions/entities/disbursement.entity";
+import { Disbursement } from "../disbursements/entities/disbursement.entity";
 
 @Injectable()
 export class SupportRequestService {
@@ -28,7 +28,7 @@ export class SupportRequestService {
                 status: 'ACTIVE'
             }
         });
-        if (!isParticipant) throw new BadRequestException('Bạn phải là TNV được duyệt của chiến dịch này mới được xin tạm ứng.');
+        if (!isParticipant) throw new ForbiddenException('Bạn phải là TNV được duyệt của chiến dịch này mới được xin tạm ứng.');
 
         // Kiểm tra Quỹ phải bé hơn số tiền trong quỹ
         // Tạm bỏ qua logic trừ tiền đã giải ngân để code đơn giản, thực tế bạn phải tính: Quỹ = Tổng Nạp - Tổng Đã Giải Ngân

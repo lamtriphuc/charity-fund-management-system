@@ -20,7 +20,7 @@ export class Disbursement {
     @JoinColumn({ name: 'volunteer_id' })
     volunteer: User;
 
-    @Column({ type: 'decimal', precision: 15, scale: 2 })
+    @Column({ type: 'bigint' })
     amount: number;
 
     @Column({ name: 'tx_reference', type: 'varchar', nullable: true })

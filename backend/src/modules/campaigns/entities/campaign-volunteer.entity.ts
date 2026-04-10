@@ -15,6 +15,6 @@ export class CampaignVolunteer {
     @JoinColumn({ name: 'volunteer_id' })
     volunteer: User;
 
-    @Column({ type: 'varchar', default: 'Pending' })
+    @Column({ type: 'varchar', default: 'PENDING' })
     status: string; // Pending, Active, Completed, Banned
 }

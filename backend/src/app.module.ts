@@ -1,17 +1,17 @@
-import { UserController } from './modules/users/user.controller';
-import { CampaignController } from './modules/campaigns/campaign.controller';
-import { CampaignService } from './modules/campaigns/campaign.service';
+import { DisbursementModule } from './modules/disbursements/disbursement.module';
+import { SupportRequestModule } from './modules/support-requests/support-request.module';
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from './modules/users/users.module';
 import { CampaignsModule } from './modules/campaigns/campaigns.module';
-import { TransactionsModule } from './modules/transactions/transactions.module';
+import { TransactionsModule } from './modules/donation/transactions.module';
 import { LedgerModule } from './modules/ledger/ledger.module';
 import { SystemModule } from './modules/system/system.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { CloudinaryModule } from './common/cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -39,10 +39,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     TransactionsModule,
     LedgerModule,
     SystemModule,
-    AuthModule
+    AuthModule,
+    SupportRequestModule,
+    DisbursementModule,
+    CloudinaryModule
   ],
-  controllers: [
-    UserController, AppController],
+  controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule { }

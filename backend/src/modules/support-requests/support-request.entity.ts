@@ -15,7 +15,7 @@ export class SupportRequest {
     @JoinColumn({ name: 'campaign_id' })
     campaign: Campaign;
 
-    @Column({ name: 'requested_amount', type: 'decimal', precision: 15, scale: 2 })
+    @Column({ name: 'requested_amount', type: 'bigint' })
     requestedAmount: number;
 
     @Column({ type: 'text' })

@@ -17,7 +17,7 @@ export class DisbursementProof {
     digitalSignature: string;
 
     @Column({ name: 'flagged_reason', type: 'text', nullable: true })
-    flaggedReason: string;
+    flaggedReason?: string | null;
 
     @Column({ name: 'verification_status', type: 'varchar', default: 'Pending_Audit' })
     verificationStatus: string; // Pending_Audit, Verified, Flagged

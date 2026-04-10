@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Disbursement } from './entities/disbursement.entity';
-import { DisbursementProof } from './entities/disbursement-proof.entity';
+import { Disbursement } from '../disbursements/entities/disbursement.entity';
+import { DisbursementProof } from '../disbursements/entities/disbursement-proof.entity';
 import { Donation } from './entities/donation.entity';
 import { SupportRequest } from '../support-requests/support-request.entity';
 import { Campaign } from '../campaigns/entities/campaign.entity';

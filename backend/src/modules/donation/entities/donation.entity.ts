@@ -15,7 +15,7 @@ export class Donation {
     @JoinColumn({ name: 'campaign_id' })
     campaign: Campaign
 
-    @Column({ type: 'decimal', precision: 15, scale: 2 })
+    @Column({ type: 'bigint' })
     amount: number;
 
     @Column({ type: 'text', nullable: true })

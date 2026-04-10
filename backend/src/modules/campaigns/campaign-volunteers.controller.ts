@@ -22,12 +22,12 @@ export class CampaignVolunteersController {
     }
 
     // ADMIN DUYỆT TNV
-    @Patch(':volunteerUserId/status')
+    @Patch(':volunteerId/status')
     @UseGuards(AuthGuard('jwt'), RolesGuard)
     @Roles('ADMIN')
     updateStatus(
         @Param('campaignId') campaignId: string,
-        @Param('volunteerUserId') volunteerUserId: string,
+        @Param('volunteerId') volunteerUserId: string,
         @Body() dto: UpdateVolunteerStatusDto
     ) {
         return this.volunteersService.updateStatus(campaignId, volunteerUserId, dto);

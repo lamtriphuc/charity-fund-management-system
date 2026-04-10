@@ -11,16 +11,16 @@ export class Campaign {
     @Column({ type: 'text', nullable: true })
     description: string;
 
-    @Column({ name: 'target_amount', type: 'decimal', precision: 15, scale: 2 })
+    @Column({ name: 'target_amount', type: 'bigint' })
     targetAmount: number;
 
     @Column({ type: 'varchar' })
     campaignType: string; // FLEXIBLE, FIXED
 
-    @Column({ type: 'varchar', default: 'Active' })
+    @Column({ type: 'varchar', default: 'ACTIVE' })
     status: string; // Active, Closed, Suspended
 
-    @Column({ name: 'current_amount', type: 'numeric', default: 0 })
+    @Column({ name: 'current_amount', type: 'bigint', default: 0 })
     currentAmount: number;
 
     @Column({ name: 'start_date', type: 'timestamp' })
