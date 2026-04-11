@@ -6,7 +6,7 @@ import { Donation } from './entities/donation.entity';
 import { SupportRequest } from '../support-requests/support-request.entity';
 import { Campaign } from '../campaigns/entities/campaign.entity';
 import { User } from '../users/entities/user.entity';
-import { DonationController } from './donations.controller';
+import { DonationController } from './donation.controller';
 import { DonationService } from './donation.service';
 
 @Module({
@@ -15,4 +15,4 @@ import { DonationService } from './donation.service';
     controllers: [DonationController],
     exports: [TypeOrmModule]
 })
-export class TransactionsModule { }
+export class DonationModule { }

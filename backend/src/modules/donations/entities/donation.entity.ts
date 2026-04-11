@@ -36,6 +36,12 @@ export class Donation {
     @Column({ type: 'varchar', default: 'Pending' })
     status: string; // PENDING, SUCCESS, FAILED
 
+    @Column({ name: 'hash', type: 'varchar', nullable: true })
+    hash: string;
+
+    @Column({ name: 'previous_hash', type: 'varchar', nullable: true })
+    previousHash: string;
+
     @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
     createdAt: Date
 }

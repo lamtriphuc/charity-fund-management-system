@@ -29,6 +29,12 @@ export class Disbursement {
     @Column({ type: 'varchar' })
     status: string;
 
+    @Column({ name: 'hash', type: 'varchar', nullable: true })
+    hash: string;
+
+    @Column({ name: 'previous_hash', type: 'varchar', nullable: true })
+    previousHash: string;
+
     @CreateDateColumn({ name: 'created_at' })
     createdAt: Date;
 }

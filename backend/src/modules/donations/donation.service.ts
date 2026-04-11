@@ -5,6 +5,8 @@ import { DataSource, Repository } from "typeorm";
 import { Campaign } from "../campaigns/entities/campaign.entity";
 import { CreateDonationDto, WebhookPaymentDto } from "./dto/donation.dto";
 import { User } from "../users/entities/user.entity";
+import { LedgerService } from "../ledger/ledger.service";
+import { ConfigService } from "@nestjs/config";
 
 @Injectable()
 export class DonationService {
@@ -12,7 +14,9 @@ export class DonationService {
         @InjectRepository(Donation) private readonly donationRepository: Repository<Donation>,
         @InjectRepository(Campaign) private readonly campaignRepository: Repository<Campaign>,
         @InjectRepository(User) private readonly userRepository: Repository<User>,
-        private readonly dataSource: DataSource
+        private readonly dataSource: DataSource,
+        private readonly ledgerService: LedgerService,
+        private configService: ConfigService
     ) { }
 
     async createDonation(campaignId: string, userId: string | null, dto: CreateDonationDto) {
@@ -79,6 +83,30 @@ export class DonationService {
                 // Cập nhật trạng thái giao dịch
                 donation.status = 'SUCCESS';
                 await queryRunner.manager.save(donation);
+
+                // TÍCH HỢP INTERNAL LEDGER
+                // Nghiệp vụ: Nhận tiền tài trợ
+                // Nợ (Debit) TK Ngân hàng: Tăng tài sản
+                // Có (Credit) TK Quỹ Chiến dịch: Tăng nguồn vốn (trách nhiệm phải chi)
+
+                await this.ledgerService.recordTransaction(
+                    queryRunner.manager,
+                    'DONATION',
+                    donation.id,
+                    [
+                        {
+                            accountId: this.configService.getOrThrow<string>('CASH_ACCOUNT_ID'), // Lấy từ env hoặc cấu hình hằng số
+                            isDebit: true, // Nợ
+                            amount: Number(donation.amount)
+                        },
+                        {
+                            // accountId: donation.campaign.fundAccountId, // Bảng Campaign nên chứa ID của TK Quỹ tương ứng
+                            accountId: '3232323232323',
+                            isDebit: false, // Có
+                            amount: Number(donation.amount)
+                        }
+                    ]
+                );
 
                 // Cộng tiền vào tổng của chiến dịch
                 const campaign = donation.campaign;

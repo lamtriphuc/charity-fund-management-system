@@ -6,12 +6,13 @@ import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from './modules/users/users.module';
 import { CampaignsModule } from './modules/campaigns/campaigns.module';
-import { TransactionsModule } from './modules/donation/transactions.module';
+import { DonationModule } from './modules/donations/donation.module';
 import { LedgerModule } from './modules/ledger/ledger.module';
 import { SystemModule } from './modules/system/system.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CloudinaryModule } from './common/cloudinary/cloudinary.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -36,13 +37,14 @@ import { CloudinaryModule } from './common/cloudinary/cloudinary.module';
     }),
     UsersModule,
     CampaignsModule,
-    TransactionsModule,
+    DashboardModule,
     LedgerModule,
     SystemModule,
     AuthModule,
     SupportRequestModule,
     DisbursementModule,
-    CloudinaryModule
+    CloudinaryModule,
+    DashboardModule
   ],
   controllers: [AppController],
   providers: [AppService],
