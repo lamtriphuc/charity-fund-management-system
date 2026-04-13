@@ -10,9 +10,10 @@ import { CampaignVolunteersController } from './campaign-volunteers.controller';
 import { CampaignUpdatesController } from './campaign-updates.controller';
 import { CampaignUpdatesService } from './campaign-updates.service';
 import { CampaignVolunteersService } from './campaign-volunteers.service';
+import { Account } from '../ledger/entities/account.entity';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Campaign, CampaignUpdate, CampaignVolunteer, User])],
+    imports: [TypeOrmModule.forFeature([Campaign, CampaignUpdate, CampaignVolunteer, User, Account])],
     controllers: [
         CampaignController,
         CampaignVolunteersController,

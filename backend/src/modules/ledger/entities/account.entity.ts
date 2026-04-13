@@ -11,6 +11,6 @@ export class Account {
     @Column({ type: 'varchar' })
     name: string;
 
-    @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+    @Column({ type: 'bigint', default: 0 })
     balance: number;
 }

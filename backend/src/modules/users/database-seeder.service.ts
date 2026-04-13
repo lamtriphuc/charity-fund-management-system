@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
 import { Role } from './entities/role.entity';
 import { KycStatus } from 'src/common/enums/kyc-status.enum';
+import { Account } from '../ledger/entities/account.entity';
 
 @Injectable()
 export class DatabaseSeederService {
@@ -13,12 +14,14 @@ export class DatabaseSeederService {
     constructor(
         @InjectRepository(User) private readonly userRepository: Repository<User>,
         @InjectRepository(Role) private readonly roleRepository: Repository<Role>,
+        @InjectRepository(Account) private readonly accountRepository: Repository<Account>,
     ) { }
 
     // Đổi tên hàm và BỎ OnModuleInit
     async seed() {
         this.logger.log('--- BẮT ĐẦU QUÁ TRÌNH SEEDING DỮ LIỆU ---');
         await this.seedRolesAndAdmin();
+        await this.seedSystemAccounts();
         this.logger.log('--- KẾT THÚC SEEDING ---');
     }
 
@@ -85,5 +88,29 @@ export class DatabaseSeederService {
 
             await this.userRepository.save(members);
         }
+    }
+
+    private async seedSystemAccounts() {
+        this.logger.log('Tạo Tài khoản Kế toán Hệ thống (System Accounts)...');
+
+        let cashAccount = await this.accountRepository.findOne({ where: { name: 'Tiền Gửi Ngân Hàng Tổng' } });
+
+        if (!cashAccount) {
+            cashAccount = this.accountRepository.create({
+                accountType: 'ASSET',
+                name: 'Tiền Gửi Ngân Hàng Tổng',
+                balance: 0,
+            });
+            await this.accountRepository.save(cashAccount);
+            this.logger.log('✅ Đã tạo tài khoản Tiền Gửi Ngân Hàng Tổng.');
+        } else {
+            this.logger.log('Tài khoản Tiền Gửi đã tồn tại, bỏ qua.');
+        }
+
+        // Bắt buộc in ra Terminal để Dev copy vào file .env
+        this.logger.log(`\n\n========================================================`);
+        this.logger.log(`🚨 QUAN TRỌNG: Hãy copy dòng dưới đây và dán vào file .env:`);
+        this.logger.log(`CASH_ACCOUNT_ID=${cashAccount.id}`);
+        this.logger.log(`========================================================\n`);
     }
 }

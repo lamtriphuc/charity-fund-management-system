@@ -23,6 +23,9 @@ export class Campaign {
     @Column({ name: 'current_amount', type: 'bigint', default: 0 })
     currentAmount: number;
 
+    @Column({ name: 'fund_account_id', type: 'uuid', nullable: true })
+    fundAccountId: string;
+
     @Column({ name: 'start_date', type: 'timestamp' })
     startDate: Date;
 

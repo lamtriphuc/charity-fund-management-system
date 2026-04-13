@@ -101,7 +101,7 @@ export class DonationService {
                         },
                         {
                             // accountId: donation.campaign.fundAccountId, // Bảng Campaign nên chứa ID của TK Quỹ tương ứng
-                            accountId: '3232323232323',
+                            accountId: donation.campaign.fundAccountId,
                             isDebit: false, // Có
                             amount: Number(donation.amount)
                         }

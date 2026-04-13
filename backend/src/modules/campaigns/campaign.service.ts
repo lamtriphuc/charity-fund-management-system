@@ -4,20 +4,31 @@ import { Campaign } from './entities/campaign.entity';
 import { Repository } from 'typeorm';
 import { CreateCampaignDto, GetCampaignsQueryDto, UpdateCampaignStatusDto } from './dto/campaign.dto';
 import { CampaignStatus } from 'src/modules/campaigns/dto/campaign.enum';
+import { Account } from '../ledger/entities/account.entity';
 
 @Injectable()
 export class CampaignService {
     constructor(
-        @InjectRepository(Campaign)
-        private readonly campaignRepository: Repository<Campaign>
+        @InjectRepository(Campaign) private readonly campaignRepository: Repository<Campaign>,
+        @InjectRepository(Account) private readonly accountRepository: Repository<Account>,
     ) { }
 
     async create(dto: CreateCampaignDto) {
+        // Tự động tạo Tài khoản Kế toán cho Chiến dịch này
+        const newAccount = this.accountRepository.create({
+            accountType: 'LIABILITY',
+            name: `Quỹ chiến dịch: ${dto.title}`,
+            balance: 0
+        });
+        await this.accountRepository.save(newAccount);
+
         if (dto.startDate >= dto.endDate) throw new BadRequestException('Ngày kết thúc phải lớn hơn ngày bắt đầu');
 
         const newCampaign = await this.campaignRepository.create({
             ...dto,
-            status: CampaignStatus.ACTIVE
+            status: CampaignStatus.ACTIVE,
+            currentAmount: 0,
+            fundAccountId: newAccount.id
         });
 
         return await this.campaignRepository.save(newCampaign);

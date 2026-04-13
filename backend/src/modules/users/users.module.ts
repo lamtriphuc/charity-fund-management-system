@@ -7,10 +7,11 @@ import { UserController } from './user.controller';
 import { UserService } from './user.service';
 import { KycProfile } from './entities/kyc-profile.entity';
 import { CloudinaryModule } from 'src/common/cloudinary/cloudinary.module';
+import { Account } from '../ledger/entities/account.entity';
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([Role, User, KycProfile]),
+        TypeOrmModule.forFeature([Role, User, KycProfile, Account]),
         CloudinaryModule
     ],
     providers: [UserService, DatabaseSeederService],
