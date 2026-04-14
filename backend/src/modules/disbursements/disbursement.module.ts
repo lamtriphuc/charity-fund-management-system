@@ -6,10 +6,12 @@ import { Campaign } from '../campaigns/entities/campaign.entity';
 import { DisbursementController } from './disbursement.controller';
 import { DisbursementService } from './disbursement.service';
 import { CloudinaryModule } from 'src/common/cloudinary/cloudinary.module';
+import { LedgerModule } from '../ledger/ledger.module';
 
 @Module({
     imports: [
         CloudinaryModule,
+        LedgerModule,
         TypeOrmModule.forFeature([Disbursement, DisbursementProof, Campaign])
     ],
     controllers: [DisbursementController],

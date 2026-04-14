@@ -13,6 +13,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CloudinaryModule } from './common/cloudinary/cloudinary.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { CronModule } from './modules/cron/cron.module';
 
 @Module({
   imports: [
@@ -44,7 +46,9 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     SupportRequestModule,
     DisbursementModule,
     CloudinaryModule,
-    DashboardModule
+    CronModule,
+
+    ScheduleModule.forRoot()
   ],
   controllers: [AppController],
   providers: [AppService],
