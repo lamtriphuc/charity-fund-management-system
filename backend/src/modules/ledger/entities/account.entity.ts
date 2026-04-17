@@ -5,6 +5,10 @@ export class Account {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
+    // 'SYS_CASH', 'CAMP_123', ...
+    @Column({ type: 'varchar', unique: true })
+    code: string;
+
     @Column({ name: 'account_type', type: 'varchar' })
     accountType: string; // ASSET, LIABILITY, REVENUE, EXPENSE
 

@@ -8,9 +8,14 @@ import { Campaign } from '../campaigns/entities/campaign.entity';
 import { User } from '../users/entities/user.entity';
 import { DonationController } from './donation.controller';
 import { DonationService } from './donation.service';
+import { LedgerModule } from '../ledger/ledger.module';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Disbursement, DisbursementProof, Donation, SupportRequest, Campaign, User])],
+    imports: [
+        LedgerModule,
+        TypeOrmModule.forFeature([
+            Disbursement, DisbursementProof, Donation, SupportRequest, Campaign, User
+        ])],
     providers: [DonationService],
     controllers: [DonationController],
     exports: [TypeOrmModule]

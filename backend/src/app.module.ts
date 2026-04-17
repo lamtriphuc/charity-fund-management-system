@@ -15,6 +15,7 @@ import { CloudinaryModule } from './common/cloudinary/cloudinary.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { CronModule } from './modules/cron/cron.module';
+import { StatementModule } from './modules/statements/statements.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { CronModule } from './modules/cron/cron.module';
     }),
     UsersModule,
     CampaignsModule,
+    DonationModule,
     DashboardModule,
     LedgerModule,
     SystemModule,
@@ -47,6 +49,7 @@ import { CronModule } from './modules/cron/cron.module';
     DisbursementModule,
     CloudinaryModule,
     CronModule,
+    StatementModule,
 
     ScheduleModule.forRoot()
   ],

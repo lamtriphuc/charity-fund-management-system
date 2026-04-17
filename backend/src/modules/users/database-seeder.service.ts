@@ -97,6 +97,7 @@ export class DatabaseSeederService {
 
         if (!cashAccount) {
             cashAccount = this.accountRepository.create({
+                code: 'SYS_CASH',
                 accountType: 'ASSET',
                 name: 'Tiền Gửi Ngân Hàng Tổng',
                 balance: 0,
@@ -106,11 +107,5 @@ export class DatabaseSeederService {
         } else {
             this.logger.log('Tài khoản Tiền Gửi đã tồn tại, bỏ qua.');
         }
-
-        // Bắt buộc in ra Terminal để Dev copy vào file .env
-        this.logger.log(`\n\n========================================================`);
-        this.logger.log(`🚨 QUAN TRỌNG: Hãy copy dòng dưới đây và dán vào file .env:`);
-        this.logger.log(`CASH_ACCOUNT_ID=${cashAccount.id}`);
-        this.logger.log(`========================================================\n`);
     }
 }

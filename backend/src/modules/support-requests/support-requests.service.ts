@@ -62,11 +62,11 @@ export class SupportRequestService {
             if (request.status !== SupportRequestStatus.PENDING) throw new BadRequestException('Phiếu này đã được xử lý rồi.');
 
             // update trang thái
-            request.status = dto.status;
             if (dto.status === SupportRequestStatus.REJECTED) {
                 if (!dto.rejectionReason) throw new BadRequestException('Vui lòng nhập lý do từ chối.');
                 request.rejectionReason = dto.rejectionReason;
             }
+            request.status = dto.status;
 
             await this.supportRequestRepository.save(request);
 

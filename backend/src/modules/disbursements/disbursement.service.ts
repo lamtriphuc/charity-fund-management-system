@@ -7,6 +7,7 @@ import { DataSource, Repository } from 'typeorm';
 import { AuditProofDto, ProofStatus, TransferDisbursementDto } from './dto/disbursement.dto';
 import { LedgerService } from '../ledger/ledger.service';
 import { ConfigService } from '@nestjs/config';
+import { Account } from '../ledger/entities/account.entity';
 
 @Injectable()
 export class DisbursementService {
@@ -21,12 +22,6 @@ export class DisbursementService {
 
     // 1. ADMIN XÁC NHẬN ĐÃ CHUYỂN TIỀN
     async confirmTransfer(disbursementId: string, dto: TransferDisbursementDto) {
-        // 1. Kiểm tra cấu hình tài khoản tổng
-        const cashAccountId = this.configService.get<string>('CASH_ACCOUNT_ID');
-        if (!cashAccountId) {
-            throw new InternalServerErrorException('Lỗi hệ thống: Chưa cấu hình CASH_ACCOUNT_ID');
-        }
-
         const queryRunner = this.dataSource.createQueryRunner();
         await queryRunner.connect();
         await queryRunner.startTransaction();
@@ -58,6 +53,15 @@ export class DisbursementService {
             disbursement.txReference = dto.txReference;
             await queryRunner.manager.save(disbursement);
 
+            // LẤY TÀI KHOẢN TỔNG TỪ DATABASE BẰNG MÃ 'SYS_CASH'
+            const cashAccount = await queryRunner.manager.findOne(Account, {
+                where: { code: 'SYS_CASH' }
+            });
+
+            if (!cashAccount) {
+                throw new InternalServerErrorException('Lỗi nghiêm trọng: Không tìm thấy tài khoản ngân hàng tổng (SYS_CASH)');
+            }
+
             // 3. TÍCH HỢP INTERNAL LEDGER: Ghi nhận bút toán xuất tiền
             await this.ledgerService.recordTransaction(
                 queryRunner.manager,
@@ -70,7 +74,7 @@ export class DisbursementService {
                         amount: Number(disbursement.amount)
                     },
                     {
-                        accountId: cashAccountId, // Nợ Quỹ Chiến dịch (Giảm Nợ phải trả)
+                        accountId: cashAccount.id, // Nợ Quỹ Chiến dịch (Giảm Nợ phải trả)
                         isDebit: false,
                         amount: Number(disbursement.amount)
                     },

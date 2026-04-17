@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { CreateCampaignDto, GetCampaignsQueryDto, UpdateCampaignStatusDto } from './dto/campaign.dto';
 import { CampaignStatus } from 'src/modules/campaigns/dto/campaign.enum';
 import { Account } from '../ledger/entities/account.entity';
+import { AccountType } from '../ledger/dto/ledger.dto';
 
 @Injectable()
 export class CampaignService {
@@ -16,7 +17,8 @@ export class CampaignService {
     async create(dto: CreateCampaignDto) {
         // Tự động tạo Tài khoản Kế toán cho Chiến dịch này
         const newAccount = this.accountRepository.create({
-            accountType: 'LIABILITY',
+            code: `CAMP_${Date.now()}`,
+            accountType: AccountType.LIABILITY,
             name: `Quỹ chiến dịch: ${dto.title}`,
             balance: 0
         });

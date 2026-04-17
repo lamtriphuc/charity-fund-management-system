@@ -40,8 +40,9 @@ export class LedgerService {
         }
 
         // lấy mà Hash của GD cuối cùng trong sổ cái
-        const lastTransaction = await manager.findOne(LedgerTransaction, {
-            order: { createdAt: 'DESC' }
+        const [lastTransaction] = await manager.find(LedgerTransaction, {
+            order: { createdAt: 'DESC' },
+            take: 1,
         });
 
         const previousHash = lastTransaction?.currentHash || 'GENESIS_HASH_0000000000000000';

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Donation } from "./entities/donation.entity";
 import { DataSource, Repository } from "typeorm";
@@ -7,6 +7,7 @@ import { CreateDonationDto, WebhookPaymentDto } from "./dto/donation.dto";
 import { User } from "../users/entities/user.entity";
 import { LedgerService } from "../ledger/ledger.service";
 import { ConfigService } from "@nestjs/config";
+import { Account } from "../ledger/entities/account.entity";
 
 @Injectable()
 export class DonationService {
@@ -16,7 +17,6 @@ export class DonationService {
         @InjectRepository(User) private readonly userRepository: Repository<User>,
         private readonly dataSource: DataSource,
         private readonly ledgerService: LedgerService,
-        private configService: ConfigService
     ) { }
 
     async createDonation(campaignId: string, userId: string | null, dto: CreateDonationDto) {
@@ -37,6 +37,8 @@ export class DonationService {
             } else {
                 finalDonorName = 'Khách vãn lai'
             }
+        } else {
+            finalDonorName = null;
         }
 
         const donation = this.donationRepository.create({
@@ -45,7 +47,7 @@ export class DonationService {
             amount: dto.amount,
             message: dto.message,
             isAnonymous: dto.isAnonymous,
-            donorName: dto.donorName,
+            donorName: finalDonorName,
             paymentMethod: dto.paymentMethod,
             txReference: txReference,
             status: 'PENDING',
@@ -89,13 +91,22 @@ export class DonationService {
                 // Nợ (Debit) TK Ngân hàng: Tăng tài sản
                 // Có (Credit) TK Quỹ Chiến dịch: Tăng nguồn vốn (trách nhiệm phải chi)
 
+                // LẤY TÀI KHOẢN TỔNG TỪ DATABASE BẰNG MÃ 'SYS_CASH'
+                const cashAccount = await queryRunner.manager.findOne(Account, {
+                    where: { code: 'SYS_CASH' }
+                });
+
+                if (!cashAccount) {
+                    throw new InternalServerErrorException('Lỗi nghiêm trọng: Không tìm thấy tài khoản ngân hàng tổng (SYS_CASH)');
+                }
+
                 await this.ledgerService.recordTransaction(
                     queryRunner.manager,
                     'DONATION',
                     donation.id,
                     [
                         {
-                            accountId: this.configService.getOrThrow<string>('CASH_ACCOUNT_ID'), // Lấy từ env hoặc cấu hình hằng số
+                            accountId: cashAccount.id, // Lấy từ env hoặc cấu hình hằng số
                             isDebit: true, // Nợ
                             amount: Number(donation.amount)
                         },
