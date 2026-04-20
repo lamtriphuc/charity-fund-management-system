@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, BeforeUpdate, BeforeRemove } from 'typeorm';
 
 @Entity('ledger_transactions')
 export class LedgerTransaction {
@@ -19,4 +19,14 @@ export class LedgerTransaction {
 
     @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
     createdAt: Date;
+
+    @BeforeUpdate()
+    preventUpdate() {
+        throw new Error('Dữ liệu Sổ cái không thể bị chỉnh sửa từ tầng Application.');
+    }
+
+    @BeforeRemove()
+    preventRemove() {
+        throw new Error('Dữ liệu Sổ cái không thể bị xóa từ tầng Application.');
+    }
 }

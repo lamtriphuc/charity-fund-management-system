@@ -7,7 +7,10 @@ import { Roles } from 'src/common/decorators/roles.decorator';
 
 @Controller('campaigns')
 export class CampaignController {
-    constructor(private readonly campaignsService: CampaignService) { }
+    constructor(
+        private readonly campaignsService: CampaignService,
+        private readonly searchService: SearchService
+    ) { }
 
     // PUBLIC API
     @Get()
@@ -18,6 +21,22 @@ export class CampaignController {
     @Get(':id')
     findOne(@Param('id') id: string) {
         return this.campaignsService.findOne(id);
+    }
+
+    @Get('search')
+    async search(@Query('q') keyword: string) {
+        if (!keyword) {
+            return []; // Nếu không gõ gì thì trả về rỗng
+        }
+
+        // Gọi thẳng vào Elasticsearch, BỎ QUA HOÀN TOÀN POSTGRESQL!
+        const results = await this.searchService.searchCampaigns(keyword);
+
+        return {
+            message: 'Tìm kiếm siêu tốc với Elasticsearch',
+            total: results.length,
+            data: results
+        };
     }
 
     // PROTECTED API - ADMIN

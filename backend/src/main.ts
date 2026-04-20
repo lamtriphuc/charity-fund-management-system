@@ -2,6 +2,8 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
+import { SearchService } from './modules/search/search.service';
+import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -11,7 +13,10 @@ async function bootstrap() {
   app.enableCors({
     origin: 'http://localhost:5173',
     credentials: true
-  })
+  });
+
+  const searchService = app.get(SearchService);
+  app.useGlobalInterceptors(new AuditLogInterceptor(searchService));
 
   app.useGlobalPipes(
     new ValidationPipe({

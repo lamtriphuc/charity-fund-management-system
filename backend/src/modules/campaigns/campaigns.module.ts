@@ -11,6 +11,7 @@ import { CampaignUpdatesController } from './campaign-updates.controller';
 import { CampaignUpdatesService } from './campaign-updates.service';
 import { CampaignVolunteersService } from './campaign-volunteers.service';
 import { Account } from '../ledger/entities/account.entity';
+import { CampaignSubscriber } from './campaign.subscriber';
 
 @Module({
     imports: [TypeOrmModule.forFeature([Campaign, CampaignUpdate, CampaignVolunteer, User, Account])],
@@ -22,7 +23,8 @@ import { Account } from '../ledger/entities/account.entity';
     providers: [
         CampaignService,
         CampaignUpdatesService,
-        CampaignVolunteersService
+        CampaignVolunteersService,
+        CampaignSubscriber
     ],
     exports: [CampaignService]
 })

@@ -16,6 +16,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { CronModule } from './modules/cron/cron.module';
 import { StatementModule } from './modules/statements/statements.module';
+import { SearchModule } from './modules/search/search.module';
 
 @Module({
   imports: [
@@ -30,9 +31,9 @@ import { StatementModule } from './modules/statements/statements.module';
         type: 'postgres',
         host: configService.get<string>('DB_HOST'),
         port: configService.get<number>('DB_PORT'),
-        username: configService.get<string>('DB_USER'),
+        username: configService.get<string>('DB_USERNAME'),
         password: configService.get<string>('DB_PASSWORD'),
-        database: configService.get<string>('DB_NAME'),
+        database: configService.get<string>('DB_DATABASE'),
 
         autoLoadEntities: true,
         synchronize: true
@@ -50,6 +51,7 @@ import { StatementModule } from './modules/statements/statements.module';
     CloudinaryModule,
     CronModule,
     StatementModule,
+    SearchModule,
 
     ScheduleModule.forRoot()
   ],
