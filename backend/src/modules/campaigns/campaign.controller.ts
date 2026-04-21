@@ -4,6 +4,7 @@ import { CreateCampaignDto, GetCampaignsQueryDto, UpdateCampaignStatusDto } from
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
+import { SearchService } from '../search/search.service';
 
 @Controller('campaigns')
 export class CampaignController {

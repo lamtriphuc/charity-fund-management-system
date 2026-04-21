@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, InternalServerErrorException } from "@nestjs/common";
 import * as crypto from 'crypto';
-import { EntityManager } from "typeorm";
+import { DataSource, EntityManager, QueryRunner } from "typeorm";
 import { LedgerTransaction } from "./entities/ledger-transaction.entity";
 import { stringify } from "querystring";
 import { LedgerLine } from "./entities/ledger-line.entity";
@@ -14,6 +14,8 @@ export interface JournalEntry {
 
 @Injectable()
 export class LedgerService {
+    constructor(private readonly dataSource: DataSource) { }
+
     private generateHash(payload: any, previousHash: string): string {
         const data = `${payload}|${previousHash}`;
         return crypto.createHash('sha256').update(data).digest('hex');
@@ -97,5 +99,94 @@ export class LedgerService {
         }
 
         return ledgerTx;
+    }
+
+    async refundDonation(
+        donationId: string,
+        campaignFundAccountId: string,
+        amount: number,
+        txReference: string
+    ) {
+        const queryRunner = this.dataSource.createQueryRunner();
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
+
+        try {
+            // 1. Tìm tài khoản
+            const cashAccount = await queryRunner.manager.findOne(Account, { where: { code: 'SYS_CASH' } });
+            const fundAccount = await queryRunner.manager.findOne(Account, { where: { id: campaignFundAccountId } });
+
+            if (!cashAccount || !fundAccount) throw new Error('Không tìm thấy tài khoản kế toán.');
+            if (Number(fundAccount.balance) < amount) throw new Error('Quỹ chiến dịch không đủ để hoàn tiền.');
+
+            // 2. Tạo Transaction mới cho việc Hoàn tiền
+            const transaction = queryRunner.manager.create(LedgerTransaction, {
+                referenceType: 'REFUND',
+                referenceId: donationId,
+                description: `Hoàn tiền tự động cho giao dịch ${txReference}`,
+            });
+            await queryRunner.manager.save(transaction);
+
+            // 3. Bút toán ngược: NỢ Quỹ (Giảm quỹ) - CÓ Ngân hàng (Giảm tiền thật)
+            const debitLine = queryRunner.manager.create(LedgerLine, {
+                ledgerTransaction: transaction,
+                account: fundAccount,
+                isDebit: true, // Ghi Nợ -> Giảm quỹ nợ phải trả
+                amount: amount,
+            });
+
+            const creditLine = queryRunner.manager.create(LedgerLine, {
+                ledgerTransaction: transaction,
+                account: cashAccount,
+                isDebit: false, // Ghi Có -> Giảm tài sản
+                amount: amount,
+            });
+
+            await queryRunner.manager.save([debitLine, creditLine]);
+
+            // 4. Cập nhật số dư Sổ cái
+            fundAccount.balance = Number(fundAccount.balance) - amount;
+            cashAccount.balance = Number(cashAccount.balance) - amount;
+            await queryRunner.manager.save([fundAccount, cashAccount]);
+
+            // 5. Cập nhật Blockchain Hash (Giả định bạn đã có logic tạo Hash)
+            const payload = JSON.stringify({ referenceType: 'REFUND', referenceId: donationId, amount });
+            await this.appendBlockchainHash(queryRunner, transaction, payload);
+
+            await queryRunner.commitTransaction();
+            return transaction;
+        } catch (error) {
+            await queryRunner.rollbackTransaction();
+            throw error;
+        } finally {
+            await queryRunner.release();
+        }
+    }
+
+    private async appendBlockchainHash(
+        queryRunner: QueryRunner,
+        transaction: LedgerTransaction,
+        payload: string,
+    ) {
+        // 1. Tìm giao dịch gần nhất để lấy previousHash
+        const lastTx = await queryRunner.manager.findOne(LedgerTransaction, {
+            where: {},
+            order: { createdAt: 'DESC' },
+        });
+
+        const previousHash = lastTx && lastTx.currentHash
+            ? lastTx.currentHash
+            : 'GENESIS_HASH_0000000000000000';
+
+        // 2. Sinh ra mã Hash mới cho giao dịch hiện tại
+        const dataToHash = `${payload}|${previousHash}`;
+        const currentHash = crypto.createHash('sha256').update(dataToHash).digest('hex');
+
+        // 3. Cập nhật vào bản ghi Transaction
+        transaction.previousHash = previousHash;
+        transaction.currentHash = currentHash;
+
+        // 4. Lưu lại sự thay đổi này vào Database
+        await queryRunner.manager.save(transaction);
     }
 }
