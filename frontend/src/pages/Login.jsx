@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { Form, Input, Button, message } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
-import { useNavigate, Link } from 'react-router-dom'; // Bổ sung Link
+import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
+
+import loginBg from '../assets/charity-logo.png'
+import AuthLayout from '../layouts/AuthLayout';
 
 const Login = () => {
     const [loading, setLoading] = useState(false);
@@ -27,81 +30,75 @@ const Login = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-100">
-            <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
-
-                <div className="text-center mb-8">
-                    <h2 className="text-3xl font-bold text-blue-700 mb-2">Quỹ Từ Thiện</h2>
-                    <p className="text-gray-500 text-base m-0">Đăng nhập hệ thống quản trị</p>
-                </div>
-
-                <Form
-                    name="login_form"
-                    layout="vertical"
-                    onFinish={onFinish}
-                    size="large"
+        <AuthLayout
+            title="Đăng Nhập"
+            subtitle="Chào mừng bạn quay trở lại với hệ thống quản trị."
+        >
+            <Form
+                name="login_form"
+                layout="vertical"
+                onFinish={onFinish}
+                size="large"
+            >
+                <Form.Item
+                    name="email"
+                    rules={[
+                        { required: true, message: 'Vui lòng nhập Email!' },
+                        { type: 'email', message: 'Email không đúng định dạng!' }
+                    ]}
                 >
-                    <Form.Item
-                        name="email"
-                        rules={[
-                            { required: true, message: 'Vui lòng nhập Email!' },
-                            { type: 'email', message: 'Email không đúng định dạng!' }
-                        ]}
-                    >
-                        <Input
-                            className="text-base py-2"
-                            prefix={<UserOutlined className="text-gray-400" />}
-                            placeholder="Email của bạn"
-                        />
-                    </Form.Item>
+                    <Input
+                        className="text-base py-3"
+                        prefix={<UserOutlined className="text-gray-400 mr-2" />}
+                        placeholder="Email của bạn"
+                    />
+                </Form.Item>
 
-                    <Form.Item
-                        name="password"
-                        rules={[{ required: true, message: 'Vui lòng nhập Mật khẩu!' }]}
-                        className="mb-2" // Giảm margin-bottom để dòng "Quên mật khẩu" xích lại gần hơn
-                    >
-                        <Input.Password
-                            className="text-base py-2"
-                            prefix={<LockOutlined className="text-gray-400" />}
-                            placeholder="Mật khẩu"
-                        />
-                    </Form.Item>
+                <Form.Item
+                    name="password"
+                    rules={[{ required: true, message: 'Vui lòng nhập Mật khẩu!' }]}
+                    className="mb-2"
+                >
+                    <Input.Password
+                        className="text-base py-3"
+                        prefix={<LockOutlined className="text-gray-400 mr-2" />}
+                        placeholder="Mật khẩu"
+                    />
+                </Form.Item>
 
-                    {/* Dòng Quên mật khẩu */}
-                    <div className="flex justify-end mb-6">
-                        <Link
-                            to="/forgot-password"
-                            className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium transition-colors"
-                        >
-                            Quên mật khẩu?
-                        </Link>
-                    </div>
-
-                    <Form.Item className="mb-0">
-                        <Button
-                            type="primary"
-                            htmlType="submit"
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-lg font-medium h-12 rounded-lg border-0"
-                            loading={loading}
-                        >
-                            Đăng Nhập
-                        </Button>
-                    </Form.Item>
-                </Form>
-
-                {/* Dòng Đăng ký tài khoản */}
-                <div className="text-center mt-6 text-gray-500 text-base">
-                    Chưa có tài khoản?{' '}
+                {/* Nút Quên mật khẩu căn phải */}
+                <div className="flex justify-end mb-8">
                     <Link
-                        to="/register"
-                        className="text-blue-600 font-semibold hover:text-blue-800 hover:underline transition-colors"
+                        to="/forgot-password"
+                        className="text-brand hover:text-blue-800 text-sm font-medium transition-colors"
                     >
-                        Đăng ký ngay
+                        Quên mật khẩu?
                     </Link>
                 </div>
 
+                <Form.Item className="mb-0">
+                    <Button
+                        type="primary"
+                        htmlType="submit"
+                        className="w-full text-white text-lg font-bold h-14 rounded-xl border-0 shadow-md transition-all"
+                        loading={loading}
+                    >
+                        ĐĂNG NHẬP
+                    </Button>
+                </Form.Item>
+            </Form>
+
+            {/* Link sang trang đăng ký */}
+            <div className="text-center mt-8 text-gray-500 text-base">
+                Chưa có tài khoản?{' '}
+                <Link
+                    to="/register"
+                    className="text-brand font-semibold hover:text-blue-800 transition-colors"
+                >
+                    Đăng ký ngay
+                </Link>
             </div>
-        </div>
+        </AuthLayout>
     );
 };
 
