@@ -137,8 +137,7 @@ const HomePage = () => {
                                                 percent={percent}
                                                 showInfo={false}
                                                 strokeColor="#2563EB"
-                                                trailColor="#E2E8F0"
-                                                className="m-0!" // Xóa margin mặc định của Antd
+                                                className="m-0!"
                                             />
                                         </div>
 

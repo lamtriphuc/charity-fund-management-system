@@ -44,7 +44,7 @@ const AppFooter = () => {
                     </div>
                 </div>
                 <div className="border-t border-gray-100 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-gray-400 text-sm">
-                    <p>© 2024 CharityFund System. Blockchain Verified Transparency.</p>
+                    <p>© 2026 CharityFund System. Blockchain Verified Transparency.</p>
                     <div className="flex gap-6">
                         <Link to="/privacy" className="hover:text-gray-600">Quyền riêng tư</Link>
                         <Link to="/terms" className="hover:text-gray-600">Điều khoản</Link>

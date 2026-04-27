@@ -6,8 +6,30 @@ import ForgotPassword from './pages/ForgotPassword'
 import { ConfigProvider } from 'antd'
 import UserLayout from './layouts/UserLayout'
 import HomePage from './pages/HomePage'
+import useAuthStore from './store/authStore'
+import { useEffect } from 'react'
+
+import api from './services/api';
+import CampaignsPage from './pages/CampaignsPage'
+import CampaignDetailPage from './pages/CampaignDetailPage'
+import AdminLayout from './layouts/AdminLayout'
+import AdminDashboard from './pages/admin/AdminDashboard'
+import AdminCampaigns from './pages/admin/AdminCampaigns'
 
 function App() {
+  const restoreAuth = useAuthStore((state) => state.restoreAuth);
+
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      api.get('/auth/me')
+        .then(res => restoreAuth(res))
+        .catch(() => {
+          localStorage.removeItem('access_token');
+        });
+    }
+  }, []);
+
   return (
     <ConfigProvider
       theme={{
@@ -39,11 +61,19 @@ function App() {
         <Routes>
           <Route element={<UserLayout />}>
             <Route path="/" element={<HomePage />} />
+            <Route path="/campaigns" element={<CampaignsPage />} />
+            <Route path="/campaigns/:id" element={<CampaignDetailPage />} />
           </Route>
 
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="campaigns" element={<AdminCampaigns />} />
+          </Route>
         </Routes>
       </BrowserRouter>
     </ConfigProvider>

@@ -5,7 +5,6 @@ import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import type { Response } from 'express';
 import { RolesGuard } from 'src/common/guards/roles.guard';
-import { Role } from '../users/entities/role.entity';
 import { Roles } from 'src/common/decorators/roles.decorator';
 
 @Controller('auth')

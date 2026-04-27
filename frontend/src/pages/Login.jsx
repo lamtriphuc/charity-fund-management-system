@@ -6,22 +6,30 @@ import api from '../services/api';
 
 import loginBg from '../assets/charity-logo.png'
 import AuthLayout from '../layouts/AuthLayout';
+import useAuthStore from '../store/authStore';
+import { authService } from '../services/authService';
 
 const Login = () => {
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
+    const loginFn = useAuthStore((state) => state.login);
 
     const onFinish = async (values) => {
         setLoading(true);
         try {
-            const response = await api.post('/auth/login', {
+            const response = await authService.login({
                 email: values.email,
                 password: values.password,
             });
 
-            localStorage.setItem('access_token', response.access_token);
+            loginFn(response.user, response.accessToken);
             message.success('Đăng nhập thành công!');
-            navigate('/admin/dashboard');
+
+            if (response.user?.role === 'ADMIN') {
+                navigate('/admin/dashboard');
+            } else {
+                navigate('/');
+            }
         } catch (error) {
             message.error(error.response?.data?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại!');
         } finally {
