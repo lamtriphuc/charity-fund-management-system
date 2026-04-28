@@ -15,6 +15,10 @@ import CampaignDetailPage from './pages/CampaignDetailPage'
 import AdminLayout from './layouts/AdminLayout'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminCampaigns from './pages/admin/AdminCampaigns'
+import AdminLedger from './pages/admin/AdminLedger'
+import AdminUsers from './pages/admin/AdminUsers'
+import ProfilePage from './pages/ProfilePage'
+import { GoogleOAuthProvider } from '@react-oauth/google'
 
 function App() {
   const restoreAuth = useAuthStore((state) => state.restoreAuth);
@@ -25,7 +29,7 @@ function App() {
       api.get('/auth/me')
         .then(res => restoreAuth(res))
         .catch(() => {
-          localStorage.removeItem('access_token');
+          logout();
         });
     }
   }, []);
@@ -53,29 +57,43 @@ function App() {
             activeBorderColor: '#0F172A', // Khi focus thì viền màu xanh đen
             controlHeightLG: 48, // Nới rộng độ cao ô input luôn
             borderRadiusLG: 8,
+          },
+          Layout: {
+            siderBg: '#0F172A',     // Nền của toàn bộ thanh Sidebar
+            triggerBg: '#0F172A',   // Nền của nút gập/mở (<) ở dưới cùng
+          },
+          Menu: {
+            darkItemBg: '#0F172A',      // Màu nền các nút menu
+            darkSubMenuItemBg: '#0F172A',
+            darkPopupBg: '#0F172A',     // Màu nền khi thu gọn sidebar sổ ra
           }
         }
       }}
     >
-      <BrowserRouter>
-        <Routes>
-          <Route element={<UserLayout />}>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/campaigns" element={<CampaignsPage />} />
-            <Route path="/campaigns/:id" element={<CampaignDetailPage />} />
-          </Route>
+      <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+        <BrowserRouter>
+          <Routes>
+            <Route element={<UserLayout />}>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/campaigns" element={<CampaignsPage />} />
+              <Route path="/campaigns/:id" element={<CampaignDetailPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+            </Route>
 
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
 
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<AdminDashboard />} />
-            <Route path="campaigns" element={<AdminCampaigns />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="campaigns" element={<AdminCampaigns />} />
+              <Route path="ledger" element={<AdminLedger />} />
+              <Route path="users" element={<AdminUsers />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </GoogleOAuthProvider>
     </ConfigProvider>
   )
 }

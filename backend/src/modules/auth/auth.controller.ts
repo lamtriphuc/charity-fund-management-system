@@ -1,15 +1,19 @@
-import { Body, Controller, Post, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Res, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto } from './dto/auth.dto';
+import { GoogleLoginDto, LoginDto, RegisterDto } from './dto/auth.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import type { Response } from 'express';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
+import { UserService } from '../users/user.service';
 
 @Controller('auth')
 export class AuthController {
-    constructor(private authService: AuthService) { }
+    constructor(
+        private readonly authService: AuthService,
+        private readonly userService: UserService
+    ) { }
 
     @Post('register')
     register(@Body() dto: RegisterDto) {
@@ -64,10 +68,22 @@ export class AuthController {
         return { access_token: tokens.accessToken };
     }
 
+    @Post('google')
+    @HttpCode(HttpStatus.OK)
+    async googleLogin(@Body('token') token: string) {
+        return this.authService.googleLogin(token);
+    }
+
     @Post('test')
     @UseGuards(AuthGuard('jwt'), RolesGuard)
     @Roles('ADMIN')
     test() {
         return 'test'
+    }
+
+    @Get('me')
+    @UseGuards(AuthGuard('jwt'))
+    getProfile(@CurrentUser() user: any) {
+        return this.userService.getProfile(user.id);
     }
 }

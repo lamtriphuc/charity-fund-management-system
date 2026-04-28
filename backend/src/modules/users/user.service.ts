@@ -7,7 +7,7 @@ import { ApproveKycDto, SubmitKycDto } from "./dto/user.dto";
 import { KycProfile } from "./entities/kyc-profile.entity";
 import { KycProfileStatus } from "src/common/enums/kyc-profile-status.enum";
 import { KycStatus } from "src/common/enums/kyc-status.enum";
-import { CloudinaryService } from "src/common/cloudinary/cloudinary.service";
+import { CloudinaryFolder, CloudinaryService } from "src/common/cloudinary/cloudinary.service";
 
 @Injectable()
 export class UserService {
@@ -32,12 +32,12 @@ export class UserService {
         let backImageUrl = null;
 
         if (frontFile) {
-            const uploadResult = await this.cloudinaryService.uploadFile(frontFile, 'kyc_documents');
+            const uploadResult = await this.cloudinaryService.uploadFile(frontFile, CloudinaryFolder.KYC_DOCUMENTS);
             frontImageUrl = uploadResult.secure_url;
         }
 
         if (backFile) {
-            const uploadResult = await this.cloudinaryService.uploadFile(backFile, 'kyc_documents');
+            const uploadResult = await this.cloudinaryService.uploadFile(backFile, CloudinaryFolder.KYC_DOCUMENTS);
             backImageUrl = uploadResult.secure_url;
         }
 
@@ -105,10 +105,44 @@ export class UserService {
     }
 
     async getProfile(userId: string) {
-        return await this.userRepository.findOne({
+        const user = await this.userRepository.findOne({
             where: { id: userId },
-            select: ['id', 'email', 'fullName', 'kycStatus'],
             relations: ['role']
         });
+
+        if (!user) {
+            throw new NotFoundException('Không tìm thấy người dùng!');
+        }
+
+        return {
+            id: user.id,
+            email: user.email,
+            fullName: user.fullName,
+            kycStatus: user.kycStatus,
+            avatar: user.avatarUrl,          // Đổi từ avatarUrl -> avatar
+            role: user.role?.name || 'USER'  // Bóc tách lấy mỗi cái Tên của Role
+        };
+    }
+
+    async updateAvatar(userId: string, file: Express.Multer.File) {
+        const user = await this.userRepository.findOne({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User không tồn tại');
+
+        if (user.avatarUrl) {
+            // Ảnh Google có đuôi googleusercontent.com, Cloudinary không thể xóa nó
+            if (!user.avatarUrl.includes('googleusercontent.com')) {
+                const publicId = this.cloudinaryService.extractPublicIdFromUrl(user.avatarUrl);
+                if (publicId) {
+                    await this.cloudinaryService.deleteFile(publicId).catch(e => console.log('Lỗi xóa ảnh cũ:', e));
+                }
+            }
+        }
+
+        const uploadResult = await this.cloudinaryService.uploadFile(file, CloudinaryFolder.AVATARS);
+
+        user.avatarUrl = uploadResult.secure_url;
+        await this.userRepository.save(user);
+
+        return { avatarUrl: user.avatarUrl };
     }
 }

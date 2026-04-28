@@ -19,7 +19,10 @@ export class User {
     @Column({ name: 'full_name', type: 'varchar' })
     fullName: string;
 
-    @Column({ name: 'kyc_status', type: 'varchar', default: 'Pending' })
+    @Column({ name: 'avatar_url', type: 'varchar', nullable: true })
+    avatarUrl: string;
+
+    @Column({ name: 'kyc_status', type: 'varchar', default: 'PENDING' })
     kycStatus: string; // Pending, Verified, Rejected
 
     @Column({ name: 'refresh_token', type: 'varchar', nullable: true })

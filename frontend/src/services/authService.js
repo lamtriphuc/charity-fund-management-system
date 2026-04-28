@@ -19,5 +19,9 @@ export const authService = {
     // Lấy thông tin user hiện tại
     getMe: () => {
         return api.get('/auth/me');
+    },
+
+    loginWithGoogle: (body) => {
+        return api.post('/auth/google', { token: body })
     }
 };

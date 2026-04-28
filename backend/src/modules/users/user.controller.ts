@@ -1,11 +1,11 @@
-import { Body, Controller, Get, Param, Patch, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Patch, UploadedFile, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
 import { UserService } from './user.service';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { ApproveKycDto, SubmitKycDto } from './dto/user.dto';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
-import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 
@@ -13,12 +13,7 @@ import { extname } from 'path';
 export class UserController {
     constructor(private readonly usersService: UserService) { }
 
-    // 1. API: User xem profile của chính mình
-    @Get('me')
-    @UseGuards(AuthGuard('jwt'))
-    getProfile(@CurrentUser() user: any) {
-        return this.usersService.getProfile(user.id);
-    }
+    // 1. API: User xem profile của chính mìn
 
     // 2. API: User tự gửi hồ sơ KYC
     @Patch('me/kyc')
@@ -48,5 +43,23 @@ export class UserController {
         @Body() dto: ApproveKycDto
     ) {
         return this.usersService.approveKyc(kycId, dto);
+    }
+
+    @Patch('/me/avatar')
+    @UseGuards(AuthGuard('jwt'))
+    @UseInterceptors(FileInterceptor('avatar'))
+    async updateAvatar(
+        @CurrentUser() user: any,
+        @UploadedFile() file: Express.Multer.File
+    ) {
+        if (!file) {
+            throw new BadRequestException('Vui lòng chọn một file ảnh!');
+        }
+
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
+            throw new BadRequestException('Chỉ chấp nhận file định dạng hình ảnh!');
+        }
+
+        return this.usersService.updateAvatar(user.id, file);
     }
 }

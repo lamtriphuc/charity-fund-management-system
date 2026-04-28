@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, InternalServerErro
 import { InjectRepository } from '@nestjs/typeorm';
 import { Disbursement } from './entities/disbursement.entity';
 import { DisbursementProof } from './entities/disbursement-proof.entity';
-import { CloudinaryService } from 'src/common/cloudinary/cloudinary.service';
+import { CloudinaryFolder, CloudinaryService } from 'src/common/cloudinary/cloudinary.service';
 import { DataSource, Repository } from 'typeorm';
 import { AuditProofDto, ProofStatus, TransferDisbursementDto } from './dto/disbursement.dto';
 import { LedgerService } from '../ledger/ledger.service';
@@ -117,7 +117,7 @@ export class DisbursementService {
         }
 
         // Đẩy ảnh lên Cloudinary (chung folder hoặc folder riêng tùy bạn)
-        const uploadResult = await this.cloudinaryService.uploadFile(file, 'disbursement_proofs');
+        const uploadResult = await this.cloudinaryService.uploadFile(file, CloudinaryFolder.DISBURSEMENT_PROOFS);
 
         const newProof = this.proofRepository.create({
             disbursement: { id: disbursementId },

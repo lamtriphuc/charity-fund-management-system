@@ -9,15 +9,20 @@ import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { RoleName } from 'src/modules/users/dto/role.enum';
 import { KycStatus } from 'src/common/enums/kyc-status.enum';
 import { Role } from '../users/entities/role.entity';
+import { OAuth2Client } from 'google-auth-library';
 
 @Injectable()
 export class AuthService {
+    private googleClient: OAuth2Client;
+
     constructor(
         @InjectRepository(User) private readonly userRepository: Repository<User>,
         @InjectRepository(Role) private readonly roleRepository: Repository<Role>,
         private jwtService: JwtService,
         private configService: ConfigService
-    ) { }
+    ) {
+        this.googleClient = new OAuth2Client(this.configService.getOrThrow<string>('GOOGLE_CLIENT_ID'));
+    }
 
     private async getTokens(userId: string, email: string, role: string) {
         const payload = { sub: userId, email, role };
@@ -81,7 +86,7 @@ export class AuthService {
 
         await this.updateRefreshToken(user.id, tokens.refreshToken);
 
-        return { ...tokens, user: { id: user.id, email: user.email, role: roleName } };
+        return { ...tokens, user: { id: user.id, email: user.email, role: roleName, avatar: user.avatarUrl } };
     }
 
     async logout(userId: string) {
@@ -106,5 +111,57 @@ export class AuthService {
         await this.updateRefreshToken(user.id, tokens.refreshToken);
 
         return tokens;
+    }
+
+    async googleLogin(idToken: string) {
+        try {
+            // 1. Xác thực token với Google Server
+            const ticket = await this.googleClient.verifyIdToken({
+                idToken: idToken,
+                audience: this.configService.getOrThrow<string>('GOOGLE_CLIENT_ID'),
+            });
+            const payload = ticket.getPayload();
+            if (!payload || !payload.email) throw new UnauthorizedException('Token Google không hợp lệ');
+
+            const { email, name, picture } = payload;
+
+            // 2. Tìm User trong Database
+            let user = await this.userRepository.findOne({
+                where: { email }, relations: ['role']
+            });
+
+            // 3. Nếu chưa có tài khoản -> Tự động đăng ký
+            if (!user) {
+                const defaultRole = await this.roleRepository.findOne({ where: { name: RoleName.DONOR } });
+                if (!defaultRole) throw new InternalServerErrorException('Không tìm thấy Role mặc định');
+
+                // Tạo mật khẩu ngẫu nhiên cho user Google (vì họ không dùng pass để login)
+                const randomPassword = await bcrypt.hash(Math.random().toString(36).slice(-10), 10);
+
+                user = this.userRepository.create({
+                    email,
+                    fullName: name,
+                    avatarUrl: picture, // Lấy ảnh từ Google
+                    hashedPassword: randomPassword,
+                    kycStatus: KycStatus.PENDING,
+                    role: defaultRole
+                });
+                await this.userRepository.save(user);
+            }
+
+            // 4. Cấp JWT Token của hệ thống
+            const roleName = user.role?.name || RoleName.DONOR;
+            const tokens = await this.getTokens(user.id, user.email, roleName);
+            await this.updateRefreshToken(user.id, tokens.refreshToken);
+
+            // 5. Trả về giống hệt hàm login() bình thường
+            return {
+                ...tokens,
+                user: { id: user.id, fullName: user.fullName, email: user.email, role: roleName, avatar: user.avatarUrl }
+            };
+
+        } catch (error) {
+            throw new UnauthorizedException('Xác thực Google thất bại');
+        }
     }
 }

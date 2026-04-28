@@ -30,13 +30,13 @@ const AdminLayout = () => {
     ];
 
     return (
-        <Layout className="min-h-screen">
+        <Layout className="h-full">
             {/* THANH MENU BÊN TRÁI */}
             <Sider
                 collapsible
                 collapsed={collapsed}
                 onCollapse={(value) => setCollapsed(value)}
-                className="bg-primary! shadow-xl z-20"
+                className="shadow-xl z-20 min-h-screen"
                 width={260}
             >
                 <div className="h-20 flex items-center justify-center border-b border-white/10">

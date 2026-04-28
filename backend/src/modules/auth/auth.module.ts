@@ -7,11 +7,13 @@ import { JwtModule } from '@nestjs/jwt';
 import { JwtAccessStrategy } from './strategies/jwt-access.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { Role } from '../users/entities/role.entity';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, Role]),
-    JwtModule.register({})
+    JwtModule.register({}),
+    UsersModule
   ],
   providers: [AuthService, JwtAccessStrategy, JwtRefreshStrategy],
   controllers: [AuthController]

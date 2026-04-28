@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Form, Input, Button, message } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
+import { Form, Input, Button, message, Divider } from 'antd';
+import { UserOutlined, LockOutlined, GoogleOutlined } from '@ant-design/icons';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
 
@@ -8,11 +8,13 @@ import loginBg from '../assets/charity-logo.png'
 import AuthLayout from '../layouts/AuthLayout';
 import useAuthStore from '../store/authStore';
 import { authService } from '../services/authService';
+import { GoogleLogin, useGoogleLogin } from '@react-oauth/google';
 
 const Login = () => {
     const [loading, setLoading] = useState(false);
+    const [googleLoading, setGoogleLoading] = useState(false);
     const navigate = useNavigate();
-    const loginFn = useAuthStore((state) => state.login);
+    const restoreAuth = useAuthStore((state) => state.login);
 
     const onFinish = async (values) => {
         setLoading(true);
@@ -22,7 +24,7 @@ const Login = () => {
                 password: values.password,
             });
 
-            loginFn(response.user, response.accessToken);
+            restoreAuth(response.user, response.accessToken);
             message.success('Đăng nhập thành công!');
 
             if (response.user?.role === 'ADMIN') {
@@ -34,6 +36,24 @@ const Login = () => {
             message.error(error.response?.data?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại!');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleGoogleSuccess = async (credentialResponse) => {
+        // credentialResponse.credential chính là cái id_token (Thẻ Căn Cước)
+        const idToken = credentialResponse.credential;
+        try {
+            // Gửi id_token xuống Backend
+            const response = await authService.loginWithGoogle(idToken);
+            console.log(response)
+
+            restoreAuth(response.user, response.accessToken);
+            message.success('Đăng nhập bằng Google thành công!');
+            navigate(response.user?.role === 'ADMIN' ? '/admin/dashboard' : '/');
+
+        } catch (error) {
+            console.error(error);
+            message.error('Lỗi khi xác thực tài khoản Google!');
         }
     };
 
@@ -95,6 +115,22 @@ const Login = () => {
                     </Button>
                 </Form.Item>
             </Form>
+
+            <Divider className="text-gray-400 text-sm border-gray-200!">hoặc</Divider>
+
+            {/* NÚT ĐĂNG NHẬP GOOGLE CUSTOM */}
+            <div className="flex justify-center w-full! min-h-10! items-center">
+                <GoogleLogin
+                    className='w-full!'
+                    onSuccess={handleGoogleSuccess}
+                    onError={() => message.error('Tài khoản Google bị từ chối!')}
+                    theme="outline"     // Viền trắng
+                    size="large"        // Kích thước bự
+                    width="100%"        // Trải dài 100% bằng với nút Đăng Nhập ở trên
+                    text="continue_with"// Chữ "Tiếp tục với Google"
+                    shape="rectangular" // Bo góc nhẹ
+                />
+            </div>
 
             {/* Link sang trang đăng ký */}
             <div className="text-center mt-8 text-gray-500 text-base">
