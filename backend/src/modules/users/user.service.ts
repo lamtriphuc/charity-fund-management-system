@@ -8,6 +8,10 @@ import { KycProfile } from "./entities/kyc-profile.entity";
 import { KycProfileStatus } from "src/common/enums/kyc-profile-status.enum";
 import { KycStatus } from "src/common/enums/kyc-status.enum";
 import { CloudinaryFolder, CloudinaryService } from "src/common/cloudinary/cloudinary.service";
+import { ConfigService } from "@nestjs/config";
+import FormData from "form-data";
+
+import axios from 'axios';
 
 @Injectable()
 export class UserService {
@@ -15,44 +19,81 @@ export class UserService {
         @InjectRepository(User) private readonly userRepository: Repository<User>,
         @InjectRepository(Role) private readonly roleRepository: Repository<Role>,
         @InjectRepository(KycProfile) private readonly kycProfileRepository: Repository<KycProfile>,
-        private readonly cloudinaryService: CloudinaryService
+        private readonly cloudinaryService: CloudinaryService,
+        private configService: ConfigService
     ) { }
+
+    private async scanIDCard(file: Express.Multer.File) {
+        try {
+            console.log('key: ', this.configService.getOrThrow<string>('FPT_AI_KEY'))
+            const formData = new FormData();
+            formData.append('image', file.buffer, file.originalname);
+            console.log(formData)
+
+            const response = await axios.post('https://api.fpt.ai/vision/idr/vnm', formData, {
+                headers: {
+                    'api-key': this.configService.getOrThrow<string>('FPT_AI_KEY'),
+                    ...formData.getHeaders(), // Trình bày ranh giới multipart
+                },
+            });
+
+            console.log('res>> ', response)
+
+            const result = response.data;
+
+            if (result.errorCode !== 0) {
+                console.error('LỖI TỪ FPT:', result.errorMessage);
+                throw new BadRequestException(`FPT từ chối ảnh: ${result.errorMessage}`);
+            }
+
+            console.log(' Đọc CCCD thành công!');
+            return result.data[0];
+        } catch (error) {
+            if (error.response) {
+                console.error('HTTP LỖI:', error.response.status, error.response.data);
+            }
+            throw new BadRequestException(
+                error.message || 'Không thể trích xuất CCCD. Vui lòng thử lại!'
+            );
+        }
+    }
 
     async submitKyc(
         userId: string,
         dto: SubmitKycDto,
         frontFile?: Express.Multer.File,
-        backFile?: Express.Multer.File
+        backFile?: Express.Multer.File,
+        portraitFile?: Express.Multer.File
     ) {
+        if (!frontFile || !backFile || !portraitFile) {
+            throw new BadRequestException('Vui lòng cung cấp đủ ảnh mặt trước, mặt sau và ảnh chân dung!');
+        }
+
         const user = await this.userRepository.findOne({ where: { id: userId } });
         if (!user) throw new NotFoundException('Không tìm thấy người dùng');
 
+        const extractedData = await this.scanIDCard(frontFile);
+
         // Tải ảnh lên Cloudinary song song (nếu có file)
-        let frontImageUrl = null;
-        let backImageUrl = null;
+        const [frontUrl, backUrl, portraitUrl] = await Promise.all([
+            this.cloudinaryService.uploadFile(frontFile, CloudinaryFolder.KYC_DOCUMENTS).then(r => r.secure_url),
+            this.cloudinaryService.uploadFile(backFile, CloudinaryFolder.KYC_DOCUMENTS).then(r => r.secure_url),
+            this.cloudinaryService.uploadFile(portraitFile, CloudinaryFolder.KYC_DOCUMENTS).then(r => r.secure_url),
+        ]);
 
-        if (frontFile) {
-            const uploadResult = await this.cloudinaryService.uploadFile(frontFile, CloudinaryFolder.KYC_DOCUMENTS);
-            frontImageUrl = uploadResult.secure_url;
-        }
-
-        if (backFile) {
-            const uploadResult = await this.cloudinaryService.uploadFile(backFile, CloudinaryFolder.KYC_DOCUMENTS);
-            backImageUrl = uploadResult.secure_url;
-        }
-
-        let parsedBankInfo = null;
-        if (dto.bankAccountInfo) {
-            parsedBankInfo = typeof dto.bankAccountInfo === 'string'
-                ? JSON.parse(dto.bankAccountInfo)
-                : dto.bankAccountInfo;
-        }
+        console.log(extractedData)
 
         const newKycProfile = this.kycProfileRepository.create({
             user: user,
-            frontImageUrl: frontImageUrl,
-            backImageUrl: backImageUrl,
-            bankAccountInfo: parsedBankInfo,
+            frontImageUrl: frontUrl,
+            backImageUrl: backUrl,
+            portraitImageUrl: portraitUrl, // Cần thêm trường này vào Entity
+            // Lưu lại những gì FPT quét được (Ví dụ: Họ tên, Số CCCD, Ngày sinh)
+            extractedName: extractedData.name,
+            extractedIdNumber: extractedData.id,
+            extractedDob: extractedData.dob,
+            extractedGender: extractedData.sex,
+            extractedAddress: extractedData.home,
             status: 'PENDING',
         });
         await this.kycProfileRepository.save(newKycProfile);
@@ -62,8 +103,11 @@ export class UserService {
 
         return {
             message: 'Đã gửi hồ sơ xác minh thành công.',
-            kycProfileId: newKycProfile.id,
-            uploadedUrls: { frontImageUrl, backImageUrl } // (Tùy chọn) Trả về cho frontend xem trước
+            extractedInfo: {
+                name: extractedData.name,
+                idNumber: extractedData.id,
+                dob: extractedData.dob
+            }
         };
     }
 

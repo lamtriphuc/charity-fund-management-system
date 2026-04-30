@@ -6,32 +6,36 @@ import { ApproveKycDto, SubmitKycDto } from './dto/user.dto';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
 
 @Controller('users')
 export class UserController {
     constructor(private readonly usersService: UserService) { }
 
-    // 1. API: User xem profile của chính mìn
-
-    // 2. API: User tự gửi hồ sơ KYC
     @Patch('me/kyc')
     @UseGuards(AuthGuard('jwt'))
     @UseInterceptors(
         FileFieldsInterceptor([
             { name: 'frontImage', maxCount: 1 },
             { name: 'backImage', maxCount: 1 },
+            { name: 'portraitImage', maxCount: 1 },
         ])
     )
     submitKyc(
         @CurrentUser() user: any,
         @Body() dto: SubmitKycDto,
-        @UploadedFiles() files: { frontImage?: Express.Multer.File[], backImage?: Express.Multer.File[] }
+        @UploadedFiles() files: {
+            frontImage?: Express.Multer.File[],
+            backImage?: Express.Multer.File[],
+            portraitImage?: Express.Multer.File[]
+        }
     ) {
-        const frontPath = files?.frontImage?.[0];
-        const backPath = files?.backImage?.[0];
-        return this.usersService.submitKyc(user.id, dto, frontPath, backPath);
+        return this.usersService.submitKyc(
+            user.id,
+            dto,
+            files?.frontImage?.[0],
+            files?.backImage?.[0],
+            files?.portraitImage?.[0]
+        );
     }
 
     // 3. API: Admin duyệt và nâng cấp

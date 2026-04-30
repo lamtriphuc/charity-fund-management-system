@@ -18,9 +18,13 @@ const useAuthStore = create(
                 set({ user: null, isAuthenticated: false });
             },
 
+            updateUser: (newData) => set((state) => ({
+                user: { ...state.user, ...newData }
+            })),
+
             restoreAuth: (userData) => {
                 set({ user: userData, isAuthenticated: true });
-            }
+            },
         }),
         {
             name: 'auth-storage',
