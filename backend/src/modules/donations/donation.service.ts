@@ -1,26 +1,33 @@
-import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Donation } from "./entities/donation.entity";
-import { DataSource, Repository } from "typeorm";
-import { Campaign } from "../campaigns/entities/campaign.entity";
-import { CreateDonationDto, WebhookPaymentDto } from "./dto/donation.dto";
-import { User } from "../users/entities/user.entity";
-import { LedgerService } from "../ledger/ledger.service";
-import { Account } from "../ledger/entities/account.entity";
-import { PayOS } from "@payos/node";
-import { ConfigService } from "@nestjs/config";
+import {
+    BadRequestException,
+    Injectable,
+    InternalServerErrorException,
+    NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Donation } from './entities/donation.entity';
+import { DataSource, Repository } from 'typeorm';
+import { Campaign } from '../campaigns/entities/campaign.entity';
+import { CreateDonationDto, WebhookPaymentDto } from './dto/donation.dto';
+import { User } from '../users/entities/user.entity';
+import { LedgerService } from '../ledger/ledger.service';
+import { Account } from '../ledger/entities/account.entity';
+import { PayOS } from '@payos/node';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class DonationService {
     private payOS: PayOS;
 
     constructor(
-        @InjectRepository(Donation) private readonly donationRepository: Repository<Donation>,
-        @InjectRepository(Campaign) private readonly campaignRepository: Repository<Campaign>,
+        @InjectRepository(Donation)
+        private readonly donationRepository: Repository<Donation>,
+        @InjectRepository(Campaign)
+        private readonly campaignRepository: Repository<Campaign>,
         @InjectRepository(User) private readonly userRepository: Repository<User>,
         private readonly dataSource: DataSource,
         private readonly ledgerService: LedgerService,
-        private configService: ConfigService
+        private configService: ConfigService,
     ) {
         this.payOS = new PayOS({
             clientId: this.configService.getOrThrow('PAYOS_CLIENT_ID'),
@@ -29,12 +36,20 @@ export class DonationService {
         });
     }
 
-    async createDonation(campaignId: string, userId: string | null, dto: CreateDonationDto) {
-        const campaign = await this.campaignRepository.findOne({ where: { id: campaignId } });
-        if (!campaign || campaign.status !== "ACTIVE")
+    async createDonation(
+        campaignId: string,
+        userId: string | null,
+        dto: CreateDonationDto,
+    ) {
+        const campaign = await this.campaignRepository.findOne({
+            where: { id: campaignId },
+        });
+        if (!campaign || campaign.status !== 'ACTIVE')
             throw new BadRequestException('Chiến dịch không tồn tại hoặc đã đóng.');
 
-        const orderCode = Number(String(Date.now()).slice(-6) + Math.floor(Math.random() * 1000));
+        const orderCode = Number(
+            String(Date.now()).slice(-6) + Math.floor(Math.random() * 1000),
+        );
         const txReference = String(orderCode);
 
         let finalDonorName: string | null = null;
@@ -43,10 +58,12 @@ export class DonationService {
             if (dto.donorName) {
                 finalDonorName = dto.donorName;
             } else if (userId) {
-                const user = await this.userRepository.findOne({ where: { id: userId } });
+                const user = await this.userRepository.findOne({
+                    where: { id: userId },
+                });
                 finalDonorName = user?.fullName ?? null;
             } else {
-                finalDonorName = 'Khách vãn lai'
+                finalDonorName = 'Khách vãn lai';
             }
         } else {
             finalDonorName = null;
@@ -68,7 +85,8 @@ export class DonationService {
         const cleanTitle = campaign.title
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '') // Xóa dấu
-            .replace(/đ/g, 'd').replace(/Đ/g, 'D') // Chữ Đ đặc biệt
+            .replace(/đ/g, 'd')
+            .replace(/Đ/g, 'D') // Chữ Đ đặc biệt
             .replace(/[^a-zA-Z0-9]/g, '') // Xóa khoảng trắng và ký tự đặc biệt
             .toUpperCase();
 
@@ -95,17 +113,22 @@ export class DonationService {
                 accountNumber: paymentLink.accountNumber,
                 accountName: paymentLink.accountName,
                 description: paymentLink.description,
-                bin: paymentLink.bin
+                bin: paymentLink.bin,
             };
         } catch (error) {
             console.error('Lỗi gọi API PayOS:', error);
             await this.donationRepository.delete(donation.id);
-            throw new InternalServerErrorException('Không thể tạo mã thanh toán lúc này. Vui lòng thử lại sau.');
+            throw new InternalServerErrorException(
+                'Không thể tạo mã thanh toán lúc này. Vui lòng thử lại sau.',
+            );
         }
     }
 
     async cancelPendingDonation(txReference: string) {
-        await this.donationRepository.delete({ txReference: txReference, status: 'PENDING' });
+        await this.donationRepository.delete({
+            txReference: txReference,
+            status: 'PENDING',
+        });
         return { message: 'Đã dọn dẹp giao dịch rác' };
     }
 
@@ -113,15 +136,22 @@ export class DonationService {
     async checkDonationStatus(txReference: string) {
         const donation = await this.donationRepository.findOne({
             where: { txReference },
-            select: ['status']
+            select: ['status'],
         });
         if (!donation) throw new NotFoundException('Không tìm thấy giao dịch');
         return { status: donation.status };
     }
 
     async processPaymentWebhook(dto: any) {
-        //  PayOS Webhook trả về dạng { success: true, data: { orderCode: 123... } }
-        if (!dto || !dto.data || !dto.data.orderCode) return { message: 'Invalid webhook payload' };
+        let webhookData;
+        try {
+            // Hàm này của PayOS sẽ throw error nếu chữ ký không khớp
+            webhookData = this.payOS.webhooks.verify(dto);
+        } catch (error) {
+            throw new BadRequestException(
+                'Chữ ký Webhook không hợp lệ! Phát hiện nghi vấn tấn công.',
+            );
+        }
 
         const txReference = String(dto.data.orderCode);
         const isSuccess = dto.success === true || dto.code === '00';
@@ -138,7 +168,8 @@ export class DonationService {
             });
 
             if (!donation) throw new NotFoundException('Không tìm thấy giao dịch');
-            if (donation.status === 'SUCCESS') return { message: 'Giao dịch này đã được xử lý rồi' };
+            if (donation.status === 'SUCCESS')
+                return { message: 'Giao dịch này đã được xử lý rồi' };
 
             if (isSuccess) {
                 donation.status = 'SUCCESS';
@@ -150,10 +181,12 @@ export class DonationService {
                 // Có (Credit) TK Quỹ Chiến dịch: Tăng nguồn vốn (trách nhiệm phải chi)
 
                 const cashAccount = await queryRunner.manager.findOne(Account, {
-                    where: { code: 'SYS_CASH' }
+                    where: { code: 'SYS_CASH' },
                 });
                 if (!cashAccount) {
-                    throw new InternalServerErrorException('Lỗi nghiêm trọng: Không tìm thấy tài khoản ngân hàng tổng (SYS_CASH)');
+                    throw new InternalServerErrorException(
+                        'Lỗi nghiêm trọng: Không tìm thấy tài khoản ngân hàng tổng (SYS_CASH)',
+                    );
                 }
 
                 await this.ledgerService.recordTransaction(
@@ -164,19 +197,20 @@ export class DonationService {
                         {
                             accountId: cashAccount.id,
                             isDebit: true, // Nợ
-                            amount: Number(donation.amount)
+                            amount: Number(donation.amount),
                         },
                         {
                             accountId: donation.campaign.fundAccountId,
                             isDebit: false, // Có
-                            amount: Number(donation.amount)
-                        }
-                    ]
+                            amount: Number(donation.amount),
+                        },
+                    ],
                 );
 
                 // Cộng tiền vào tổng của chiến dịch
                 const campaign = donation.campaign;
-                campaign.currentAmount = Number(campaign.currentAmount) + Number(donation.amount);
+                campaign.currentAmount =
+                    Number(campaign.currentAmount) + Number(donation.amount);
                 await queryRunner.manager.save(campaign);
             } else {
                 donation.status = 'FAILED';
@@ -185,7 +219,6 @@ export class DonationService {
 
             await queryRunner.commitTransaction();
             return { message: 'Xử lý Webhook thành công' };
-
         } catch (error) {
             await queryRunner.rollbackTransaction();
             throw error;
@@ -198,16 +231,74 @@ export class DonationService {
         const donations = await this.donationRepository.find({
             where: { campaign: { id: campaignId }, status: 'SUCCESS' },
             order: { createdAt: 'DESC' },
-            relations: ['donor']
+            relations: ['donor'],
         });
 
         // Ẩn tên nếu họ chọn isAnonymous
-        return donations.map(d => ({
+        return donations.map((d) => ({
             id: d.id,
             amount: d.amount,
             message: d.message,
             createdAt: d.createdAt,
-            donorName: d.isAnonymous ? 'Nhà hảo tâm ẩn danh' : (d.donor?.fullName || 'Khách vãng lai'),
+            donorName: d.isAnonymous
+                ? 'Nhà hảo tâm ẩn danh'
+                : d.donor?.fullName || 'Khách vãng lai',
         }));
+    }
+
+    // Lấy sao kê - toàn bộ donate của hệ thống
+    async getStatements(
+        page: number = 1,
+        limit: number = 20,
+        keyword: string = '',
+        sortBy: string = 'createdAt',
+        sortOrder: 'DESC' | 'ASC' = 'DESC',
+    ) {
+        const query = this.donationRepository
+            .createQueryBuilder('donation')
+            .leftJoinAndSelect('donation.campaign', 'campaign')
+            .leftJoinAndSelect('donation.donor', 'donor')
+            .where('donation.status = :status', { status: 'SUCCESS' });
+
+        if (keyword) {
+            // Tìm kiếm theo Mã giao dịch, Tên người chuyển hoặc Lời nhắn
+            query.andWhere(
+                '(donation.txReference LIKE :keyword OR donation.donorName LIKE :keyword OR donation.message LIKE :keyword)',
+                { keyword: `%${keyword}%` },
+            );
+        }
+
+        const sortMap = {
+            createdAt: 'donation.createdAt',
+            amount: 'donation.amount',
+        };
+        const dbSortField = sortMap[sortBy] || 'donation.createdAt';
+
+        // Mới nhất xếp lên đầu
+        query
+            .orderBy(dbSortField, sortOrder)
+            .skip((page - 1) * limit)
+            .take(limit);
+
+        const [items, total] = await query.getManyAndCount();
+
+        const mappedItems = items.map((d) => ({
+            id: d.id,
+            txReference: d.txReference,
+            amount: d.amount,
+            message: d.message,
+            createdAt: d.createdAt,
+            campaignTitle: d.campaign?.title,
+            donorName: d.isAnonymous
+                ? 'Nhà hảo tâm ẩn danh'
+                : d.donorName || d.donor?.fullName || 'Khách vãng lai',
+        }));
+
+        return {
+            data: mappedItems,
+            total,
+            currentPage: Number(page),
+            totalPages: Math.ceil(total / limit),
+        };
     }
 }

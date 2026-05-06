@@ -3,32 +3,26 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { SupportRequest } from "./support-request.entity";
 import { DataSource, Repository } from "typeorm";
 import { Campaign } from "../campaigns/entities/campaign.entity";
-import { CampaignVolunteer } from "../campaigns/entities/campaign-volunteer.entity";
 import { CreateSupportRequestDto, SupportRequestStatus, UpdateSupportRequestStatusDto } from "./dto/support-request.dto";
 import { Disbursement } from "../disbursements/entities/disbursement.entity";
+import { CampaignStatus } from "../campaigns/dto/campaign.dto";
 
 @Injectable()
 export class SupportRequestService {
     constructor(
         @InjectRepository(SupportRequest) private readonly supportRequestRepository: Repository<SupportRequest>,
         @InjectRepository(Campaign) private readonly campaignRepository: Repository<Campaign>,
-        @InjectRepository(CampaignVolunteer) private readonly campaignVolunteerRepository: Repository<CampaignVolunteer>,
         private readonly dataSourse: DataSource
     ) { }
 
     async createRequest(campaignId: string, volunteerId: string, dto: CreateSupportRequestDto) {
         const campaign = await this.campaignRepository.findOne({ where: { id: campaignId } });
-        if (!campaign || campaign.status !== 'ACTIVE') throw new BadRequestException('Chiến dịch không hợp lệ.');
+        if (!campaign || campaign.status !== CampaignStatus.ACTIVE) throw new BadRequestException('Chiến dịch không hợp lệ.');
 
         // kiem tra tnv có đang tham gia chiến dịch này k
-        const isParticipant = await this.campaignVolunteerRepository.findOne({
-            where: {
-                campaign: { id: campaignId },
-                volunteer: { id: volunteerId },
-                status: 'ACTIVE'
-            }
-        });
-        if (!isParticipant) throw new ForbiddenException('Bạn phải là TNV được duyệt của chiến dịch này mới được xin tạm ứng.');
+        if (!campaign.createdBy || campaign.createdBy.id !== volunteerId) {
+            throw new ForbiddenException('Chỉ tình nguyện viên khởi xướng chiến dịch mới được quyền tạo phiếu xin tạm ứng.');
+        }
 
         // Kiểm tra Quỹ phải bé hơn số tiền trong quỹ
         // Tạm bỏ qua logic trừ tiền đã giải ngân để code đơn giản, thực tế bạn phải tính: Quỹ = Tổng Nạp - Tổng Đã Giải Ngân
@@ -68,7 +62,7 @@ export class SupportRequestService {
             }
             request.status = dto.status;
 
-            await this.supportRequestRepository.save(request);
+            await queryRunner.manager.save(request);
 
             // Nếu DUYỆT => tạo phiếu Disbursement chờ admin ck
             if (dto.status === SupportRequestStatus.APPROVED) {

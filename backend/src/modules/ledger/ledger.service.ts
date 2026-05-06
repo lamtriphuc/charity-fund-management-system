@@ -45,6 +45,7 @@ export class LedgerService {
         const [lastTransaction] = await manager.find(LedgerTransaction, {
             order: { createdAt: 'DESC' },
             take: 1,
+            lock: { mode: 'pessimistic_write' }
         });
 
         const previousHash = lastTransaction?.currentHash || 'GENESIS_HASH_0000000000000000';

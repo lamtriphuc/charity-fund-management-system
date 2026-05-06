@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, BeforeUpdate, BeforeRemove } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, BeforeUpdate, BeforeRemove, OneToMany } from 'typeorm';
+import { LedgerLine } from './ledger-line.entity';
 
 @Entity('ledger_transactions')
 export class LedgerTransaction {
@@ -6,7 +7,7 @@ export class LedgerTransaction {
     id: string;
 
     @Column({ name: 'reference_type', type: 'varchar' })
-    referenceType: string; // DONATION, DISBURSEMENT
+    referenceType: string; // DONATION, DISBURSEMENT, FUND_TRANSFER
 
     @Column({ name: 'reference_id', type: 'uuid' })
     referenceId: string;
@@ -20,13 +21,10 @@ export class LedgerTransaction {
     @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
     createdAt: Date;
 
-    @BeforeUpdate()
-    preventUpdate() {
-        throw new Error('Dữ liệu Sổ cái không thể bị chỉnh sửa từ tầng Application.');
-    }
+    @OneToMany(() => LedgerLine, line => line.ledgerTransaction, { cascade: true })
+    lines: LedgerLine[];
 
-    @BeforeRemove()
-    preventRemove() {
-        throw new Error('Dữ liệu Sổ cái không thể bị xóa từ tầng Application.');
-    }
+    // Khóa chống sửa xóa
+    @BeforeUpdate() preventUpdate() { throw new Error('Immutable Ledger'); }
+    @BeforeRemove() preventRemove() { throw new Error('Immutable Ledger'); }
 }

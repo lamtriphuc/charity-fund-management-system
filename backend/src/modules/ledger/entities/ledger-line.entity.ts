@@ -7,7 +7,7 @@ export class LedgerLine {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
-    @ManyToOne(() => LedgerTransaction)
+    @ManyToOne(() => LedgerTransaction, tx => tx.lines)
     @JoinColumn({ name: 'ledger_transaction_id' })
     ledgerTransaction: LedgerTransaction;
 
@@ -18,6 +18,6 @@ export class LedgerLine {
     @Column({ name: 'is_debit', type: 'boolean' })
     isDebit: boolean;
 
-    @Column({ type: 'decimal', precision: 15, scale: 2 })
+    @Column({ type: 'bigint' })
     amount: number;
 }

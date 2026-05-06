@@ -1,4 +1,6 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { CampaignStatus } from "../dto/campaign.dto";
+import { User } from "src/modules/users/entities/user.entity";
 
 @Entity('campaigns')
 export class Campaign {
@@ -17,7 +19,7 @@ export class Campaign {
     @Column({ type: 'varchar' })
     campaignType: string; // FLEXIBLE, FIXED
 
-    @Column({ type: 'varchar', default: 'ACTIVE' })
+    @Column({ type: 'enum', enum: CampaignStatus, default: CampaignStatus.ACTIVE })
     status: string;
 
     @Column({ name: 'current_amount', type: 'bigint', default: 0 })
@@ -37,6 +39,17 @@ export class Campaign {
 
     @Column({ name: 'end_date', type: 'timestamp' })
     endDate: Date;
+
+    @ManyToOne(() => User)
+    @JoinColumn({ name: 'created_by' }) // Volunteer khởi xướng
+    createdBy: User;
+
+    @ManyToOne(() => User)
+    @JoinColumn({ name: 'approved_by' }) // Admin duyệt
+    approvedBy: User;
+
+    @Column({ name: 'rejection_reason', type: 'text', nullable: true })
+    rejectionReason: string;
 
     @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
     createdAt: Date;

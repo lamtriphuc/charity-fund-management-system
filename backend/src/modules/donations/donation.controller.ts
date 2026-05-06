@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query, Req } from "@nestjs/common";
 import { DonationService } from "./donation.service";
 import { CreateDonationDto, WebhookPaymentDto } from "./dto/donation.dto";
 import type { Request } from 'express';
@@ -45,5 +45,18 @@ export class DonationController {
         console.log('🎉 ĐÃ NHẬN ĐƯỢC WEBHOOK TỪ PAYOS:');
         console.log(JSON.stringify(dto, null, 2));
         return this.donationService.processPaymentWebhook(dto);
+    }
+
+
+    // Xem sao kê của tất cả chiến dịch
+    @Get('/donations/statement')
+    getStatements(
+        @Query('page') page: number = 1,
+        @Query('limit') limit: number = 20,
+        @Query('keyword') keyword: string = '',
+        @Query('sortBy') sortBy: string = 'createdAt',
+        @Query('sortOrder') sortOrder: 'DESC' | 'ASC' = 'DESC'
+    ) {
+        return this.donationService.getStatements(page, limit, keyword, sortBy, sortOrder);
     }
 }

@@ -72,7 +72,7 @@ const AppHeader = () => {
                     <nav className="hidden lg:flex items-center gap-6 text-white/80 font-semibold">
                         <Link to="/campaigns" className="hover:text-brand transition-colors">Chiến dịch</Link>
                         <Link to="/about" className="hover:text-brand transition-colors">Về chúng tôi</Link>
-                        <Link to="/transparency" className="hover:text-brand transition-colors">Minh bạch</Link>
+                        <Link to="/statements" className="hover:text-brand transition-colors">Minh bạch</Link>
                     </nav>
 
                     <Space size="large" className="text-white">

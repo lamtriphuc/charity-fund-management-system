@@ -20,6 +20,7 @@ import AdminUsers from './pages/admin/AdminUsers'
 import ProfilePage from './pages/ProfilePage'
 import { GoogleOAuthProvider } from '@react-oauth/google'
 import DonatePage from './pages/DonatePage'
+import StatementPage from './pages/StatementPage'
 
 function App() {
   const { restoreAuth, logout } = useAuthStore();
@@ -80,6 +81,7 @@ function App() {
               <Route path="/campaigns/:id" element={<CampaignDetailPage />} />
               <Route path="/campaigns/:id/donate" element={<DonatePage />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/statements" element={<StatementPage />} />
             </Route>
 
             <Route path="/login" element={<Login />} />

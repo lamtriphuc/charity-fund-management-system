@@ -1,6 +1,10 @@
 export enum AccountType {
-    ASSET = 'ASSET',
-    LIABILITY = 'LIABILITY',
-    REVENUE = 'REVENUE',
-    EXPENSE = 'EXPENSE'
+    ASSET ,
+    LIABILITY,
+};
+
+export enum LedgerReferenceType {
+    DONATION, 
+    DISBURSEMENT, 
+    FUND_TRANSFER
 }

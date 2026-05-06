@@ -18,4 +18,6 @@ export const campaignService = {
     checkPaymentStatus: (txReference) => api.get(`/donations/status/${txReference}`),
 
     cancelDonation: (txReference) => api.post(`/donations/cancel/${txReference}`),
+
+    getStatements: (params) => api.get('/donations/statement', { params }),
 };

@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
 import { Disbursement } from './disbursement.entity';
+import { ProofStatus } from '../dto/disbursement.dto';
 
 @Entity('disbursement_proofs')
 export class DisbursementProof {
@@ -19,8 +20,8 @@ export class DisbursementProof {
     @Column({ name: 'flagged_reason', type: 'text', nullable: true })
     flaggedReason?: string | null;
 
-    @Column({ name: 'verification_status', type: 'varchar', default: 'Pending_Audit' })
-    verificationStatus: string; // Pending_Audit, Verified, Flagged
+    @Column({ name: 'verification_status', type: 'enum', enum: ProofStatus, default: ProofStatus.PENDING_AUDIT })
+    verificationStatus: string; 
 
     @CreateDateColumn({ name: 'created_at' })
     createdAt: Date;

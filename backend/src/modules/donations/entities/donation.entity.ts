@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Campaign } from '../../campaigns/entities/campaign.entity';
+import { PaymentStatus } from '../dto/donation.dto';
 
 @Entity('donations')
 export class Donation {
@@ -33,14 +34,8 @@ export class Donation {
     @Column({ name: 'tx_reference', type: 'varchar', unique: true })
     txReference: string;
 
-    @Column({ type: 'varchar', default: 'PENDING' })
-    status: string; // PENDING, SUCCESS, FAILED
-
-    @Column({ name: 'hash', type: 'varchar', nullable: true })
-    hash: string;
-
-    @Column({ name: 'previous_hash', type: 'varchar', nullable: true })
-    previousHash: string;
+    @Column({ type: 'enum', enum: PaymentStatus, default: PaymentStatus.PENDING })
+    status: string;
 
     @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
     createdAt: Date
