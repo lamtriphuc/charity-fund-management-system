@@ -18,13 +18,19 @@ export class Campaign {
     campaignType: string; // FLEXIBLE, FIXED
 
     @Column({ type: 'varchar', default: 'ACTIVE' })
-    status: string; // Active, Closed, Suspended
+    status: string;
 
     @Column({ name: 'current_amount', type: 'bigint', default: 0 })
     currentAmount: number;
 
     @Column({ name: 'fund_account_id', type: 'uuid', nullable: true })
     fundAccountId: string;
+
+    @Column({ type: 'varchar', nullable: true })
+    category: string;
+
+    @Column({ name: 'image_url', type: 'text', nullable: true })
+    imageUrl: string;
 
     @Column({ name: 'start_date', type: 'timestamp' })
     startDate: Date;

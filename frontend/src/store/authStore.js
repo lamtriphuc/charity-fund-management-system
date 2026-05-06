@@ -2,7 +2,6 @@ import { create } from "zustand";
 import { persist } from 'zustand/middleware';
 
 const useAuthStore = create(
-    // BỌC TOÀN BỘ LOGIC CŨ VÀO TRONG persist()
     persist(
         (set) => ({
             user: null,

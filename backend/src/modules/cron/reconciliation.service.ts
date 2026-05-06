@@ -24,7 +24,7 @@ export class ReconciliationService {
         @InjectRepository(LedgerLine) private readonly ledgerLineRepository: Repository<LedgerLine>,
     ) { }
 
-    @Cron(CronExpression.EVERY_HOUR)
+    // @Cron(CronExpression.EVERY_HOUR)
     async handleReconciliation() {
         this.logger.log('Bắt đầu tiến trình Đối soát Kế toán tự động...');
 

@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import { Form, Input, Button, message, Divider } from 'antd';
 import { UserOutlined, LockOutlined, GoogleOutlined } from '@ant-design/icons';
 import { useNavigate, Link } from 'react-router-dom';
-import api from '../services/api';
 
-import loginBg from '../assets/charity-logo.png'
 import AuthLayout from '../layouts/AuthLayout';
 import useAuthStore from '../store/authStore';
 import { authService } from '../services/authService';
@@ -121,14 +119,17 @@ const Login = () => {
             {/* NÚT ĐĂNG NHẬP GOOGLE CUSTOM */}
             <div className="flex justify-center w-full! min-h-10! items-center">
                 <GoogleLogin
+
                     className='w-full!'
                     onSuccess={handleGoogleSuccess}
                     onError={() => message.error('Tài khoản Google bị từ chối!')}
-                    theme="outline"     // Viền trắng
-                    size="large"        // Kích thước bự
-                    width="100%"        // Trải dài 100% bằng với nút Đăng Nhập ở trên
-                    text="continue_with"// Chữ "Tiếp tục với Google"
-                    shape="rectangular" // Bo góc nhẹ
+                    theme="outline"          // Viền xám, nền trắng (Giống nút secondary)
+                    size="large"             // Kích thước to nhất của Google (chiều cao 40px)
+                    text="continue_with"     // "Tiếp tục với Google"
+                    shape="rectangular"      // Bo góc nhẹ 4px
+                    logo_alignment="center"  // QUAN TRỌNG: Căn giữa chữ và logo giống nút bình thường
+                    width="448"
+                    height='40'
                 />
             </div>
 

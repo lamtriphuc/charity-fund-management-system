@@ -33,7 +33,7 @@ export class Donation {
     @Column({ name: 'tx_reference', type: 'varchar', unique: true })
     txReference: string;
 
-    @Column({ type: 'varchar', default: 'Pending' })
+    @Column({ type: 'varchar', default: 'PENDING' })
     status: string; // PENDING, SUCCESS, FAILED
 
     @Column({ name: 'hash', type: 'varchar', nullable: true })

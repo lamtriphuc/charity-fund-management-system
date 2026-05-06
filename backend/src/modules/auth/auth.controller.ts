@@ -70,8 +70,21 @@ export class AuthController {
 
     @Post('google')
     @HttpCode(HttpStatus.OK)
-    async googleLogin(@Body('token') token: string) {
-        return this.authService.googleLogin(token);
+    async googleLogin(
+        @Body('token') token: string,
+        @Res({ passthrough: true }) res: Response // Thêm @Res vào đây
+    ) {
+        const loginData = await this.authService.googleLogin(token);
+        const { accessToken, refreshToken, user } = loginData;
+
+        res.cookie('refresh_token', refreshToken, {
+            httpOnly: true,
+            secure: false,
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+        });
+
+        return { accessToken, user };
     }
 
     @Post('test')

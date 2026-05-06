@@ -1,9 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { User } from "./entities/user.entity";
+import { User, UserKycStatus } from "./entities/user.entity";
 import { Role } from "./entities/role.entity";
-import { ApproveKycDto, SubmitKycDto } from "./dto/user.dto";
+import { ApproveKycDto, SubmitKycDto, UpdateUserDto } from "./dto/user.dto";
 import { KycProfile } from "./entities/kyc-profile.entity";
 import { KycProfileStatus } from "src/common/enums/kyc-profile-status.enum";
 import { KycStatus } from "src/common/enums/kyc-status.enum";
@@ -94,15 +94,20 @@ export class UserService {
             extractedDob: extractedData.dob,
             extractedGender: extractedData.sex,
             extractedAddress: extractedData.home,
-            status: 'PENDING',
+            status: KycProfileStatus.PENDING,
         });
         await this.kycProfileRepository.save(newKycProfile);
 
-        user.kycStatus = KycStatus.PENDING;
+        user.kycStatus = UserKycStatus.PENDING;
         await this.userRepository.save(user);
 
         return {
             message: 'Đã gửi hồ sơ xác minh thành công.',
+            uploadedUrls: {
+                frontImageUrl: frontUrl,
+                backImageUrl: backUrl,
+                portraitImageUrl: portraitUrl
+            },
             extractedInfo: {
                 name: extractedData.name,
                 idNumber: extractedData.id,
@@ -120,17 +125,24 @@ export class UserService {
         if (!kycProfile) throw new NotFoundException('Không tìm thấy hồ sơ KYC này');
 
         // Cập nhật trạng thái hồ sơ
-        kycProfile.status = dto.status;
-        if (dto.status === 'REJECTED') {
+        kycProfile.status = dto.status as KycProfileStatus;
+        kycProfile.reviewedAt = new Date();
+
+        if (dto.status === KycProfileStatus.REJECTED) {
             if (!dto.rejectionReason) throw new BadRequestException('Phải nhập lý do từ chối');
             kycProfile.rejectionReason = dto.rejectionReason;
+        } else {
+            kycProfile.rejectionReason = null;
         }
         await this.kycProfileRepository.save(kycProfile);
 
         const user = kycProfile.user;
-        user.kycStatus = dto.status === KycProfileStatus.APPROVED ? KycStatus.VERIFIED : KycStatus.REJECTED;
 
-        if (dto.status === 'APPROVED' && dto.roleName) {
+        user.kycStatus = dto.status === KycProfileStatus.APPROVED
+            ? UserKycStatus.VERIFIED
+            : UserKycStatus.REJECTED;
+
+        if (dto.status === KycProfileStatus.APPROVED && dto.roleName) {
             const newRole = await this.roleRepository.findOne({ where: { name: dto.roleName } });
             if (!newRole) throw new BadRequestException(`Role ${dto.roleName} không tồn tại`);
             user.role = newRole;
@@ -151,20 +163,46 @@ export class UserService {
     async getProfile(userId: string) {
         const user = await this.userRepository.findOne({
             where: { id: userId },
-            relations: ['role']
+            relations: ['role'] // Bắt buộc lấy cả bảng kycProfile
         });
 
-        if (!user) {
-            throw new NotFoundException('Không tìm thấy người dùng!');
-        }
+        if (!user) throw new NotFoundException('Không tìm thấy người dùng');
+
+        const latestKyc = await this.kycProfileRepository.findOne({
+            where: { user: { id: userId } },
+            order: { submittedAt: 'DESC' } // Tự động lấy cái nộp gần nhất
+        });
 
         return {
             id: user.id,
             email: user.email,
             fullName: user.fullName,
+            phone: user.phone,
+            dob: user.dob,
+            gender: user.gender,
+            address: user.address,
+            bio: user.bio,
             kycStatus: user.kycStatus,
-            avatar: user.avatarUrl,          // Đổi từ avatarUrl -> avatar
-            role: user.role?.name || 'USER'  // Bóc tách lấy mỗi cái Tên của Role
+            avatar: user.avatarUrl,
+            role: user.role?.name || 'DONOR',
+
+            // Trả về dữ liệu từ hồ sơ mới nhất (nếu có)
+            kycProfile: latestKyc ? {
+                extractedName: latestKyc.extractedName,
+                extractedIdNumber: latestKyc.extractedIdNumber,
+                extractedDob: latestKyc.extractedDob,
+                extractedGender: latestKyc.extractedGender,
+                extractedAddress: latestKyc.extractedAddress,
+                frontImageUrl: latestKyc.frontImageUrl,
+                backImageUrl: latestKyc.backImageUrl,
+                portraitImageUrl: latestKyc.portraitImageUrl,
+                status: latestKyc.status,
+                rejectionReason: latestKyc.rejectionReason
+            } : null,
+
+            bankName: user.bankName,
+            bankAccountNumber: user.bankAccountNumber,
+            bankAccountName: user.bankAccountName,
         };
     }
 
@@ -188,5 +226,49 @@ export class UserService {
         await this.userRepository.save(user);
 
         return { avatarUrl: user.avatarUrl };
+    }
+
+    async updateProfile(userId: string, dto: UpdateUserDto) {
+        const user = await this.userRepository.findOne({ where: { id: userId } });
+
+        if (!user) {
+            throw new NotFoundException('Không tìm thấy người dùng');
+        }
+
+        // Cập nhật các trường được phép thay đổi
+        if (dto.fullName) user.fullName = dto.fullName;
+        if (dto.phone !== undefined) user.phone = dto.phone;
+        if (dto.gender !== undefined) user.gender = dto.gender;
+        if (dto.address !== undefined) user.address = dto.address;
+        if (dto.bio !== undefined) user.bio = dto.bio;
+
+        if (dto.dob !== undefined) {
+            // Nếu có chuỗi ngày tháng -> Ép về Date. Nếu truyền null -> Lưu null vào DB
+            user.dob = dto.dob ? new Date(dto.dob) : null;
+        }
+
+        // banking
+        if (dto.bankName !== undefined) user.bankName = dto.bankName;
+        if (dto.bankAccountNumber !== undefined) user.bankAccountNumber = dto.bankAccountNumber;
+        if (dto.bankAccountName !== undefined) user.bankAccountName = dto.bankAccountName;
+
+        await this.userRepository.save(user);
+
+        return {
+            message: 'Cập nhật thông tin thành công',
+            user: {
+                id: user.id,
+                fullName: user.fullName,
+                phone: user.phone,
+                dob: user.dob,
+                gender: user.gender,
+                address: user.address,
+                bio: user.bio,
+
+                bankName: user.bankName,
+                bankAccountNumber: user.bankAccountNumber,
+                bankAccountName: user.bankAccountName,
+            }
+        };
     }
 }

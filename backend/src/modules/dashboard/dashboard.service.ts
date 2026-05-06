@@ -5,7 +5,7 @@ import { Repository } from 'typeorm';
 import { Donation } from '../donations/entities/donation.entity';
 import { Disbursement } from '../disbursements/entities/disbursement.entity';
 import { Campaign } from '../campaigns/entities/campaign.entity';
-import { KycProfile } from '../users/entities/kyc-profile.entity';
+import { KycProfile, KycProfileStatus } from '../users/entities/kyc-profile.entity';
 import { DisbursementProof } from '../disbursements/entities/disbursement-proof.entity';
 
 @Injectable()
@@ -40,7 +40,7 @@ export class DashboardService {
 
         // 4. Nhắc việc Admin: Số hồ sơ KYC đang chờ duyệt
         const pendingKycs = await this.kycRepository.count({
-            where: { status: 'PENDING' },
+            where: { status: KycProfileStatus.PENDING },
         });
 
         // 5. Nhắc việc Kiểm toán: Số hóa đơn đang chờ soi

@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.1",
+    "@payos/node": "^2.0.5",
     "@react-oauth/google": "^0.13.5",
     "@tailwindcss/vite": "^4.2.4",
     "antd": "^6.3.6",

@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Role } from './entities/role.entity';
 import { User } from './entities/user.entity';
-import { DatabaseSeederService } from './database-seeder.service';
+import { DatabaseSeederService } from '../../seeder/database-seeder.service';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
 import { KycProfile } from './entities/kyc-profile.entity';
@@ -14,7 +14,7 @@ import { Account } from '../ledger/entities/account.entity';
         TypeOrmModule.forFeature([Role, User, KycProfile, Account]),
         CloudinaryModule
     ],
-    providers: [UserService, DatabaseSeederService],
+    providers: [UserService],
     controllers: [UserController],
     exports: [TypeOrmModule, UserService]
 })

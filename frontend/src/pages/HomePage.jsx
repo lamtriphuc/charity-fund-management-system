@@ -1,44 +1,25 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, Progress, Tag } from 'antd';
 import { Link } from 'react-router-dom';
 import { HeartFilled, RightOutlined } from '@ant-design/icons';
+import { campaignService } from '../services/campaignService';
+import { formatMoney } from '../utils/helper';
 
-// Dữ liệu mẫu (Mock data) - Sau này sẽ fetch từ API Backend của bạn
-const mockCampaigns = [
-    {
-        id: '1',
-        title: 'Xây trường mầm non bản vùng cao',
-        image: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=800&auto=format&fit=crop',
-        target: 500000000,
-        current: 350000000,
-        daysLeft: 15,
-        category: 'Giáo dục'
-    },
-    {
-        id: '2',
-        title: 'Cứu trợ khẩn cấp lũ lụt miền Trung',
-        image: 'https://images.unsplash.com/photo-1547683905-f686c993aae5?q=80&w=800&auto=format&fit=crop',
-        target: 1000000000,
-        current: 850000000,
-        daysLeft: 3,
-        category: 'Khẩn cấp'
-    },
-    {
-        id: '3',
-        title: 'Phẫu thuật tim bẩm sinh cho bé An',
-        image: 'https://images.unsplash.com/photo-1532938911079-1b06ac7ceec7?q=80&w=800&auto=format&fit=crop',
-        target: 80000000,
-        current: 20000000,
-        daysLeft: 45,
-        category: 'Y tế'
-    }
-];
 
 const HomePage = () => {
-    // Hàm format tiền tệ VNĐ
-    const formatMoney = (amount) => {
-        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
-    };
+    const [urgentCampaigns, setUrgentCampaigns] = useState([]);
+
+    useEffect(() => {
+        const fetchUrgent = async () => {
+            try {
+                const res = await campaignService.getUrgent();
+                setUrgentCampaigns(res.data || res);
+            } catch (error) {
+                console.error("Lỗi tải chiến dịch cấp bách", error);
+            }
+        };
+        fetchUrgent();
+    }, []);
 
     return (
         <div className="w-full">
@@ -103,55 +84,73 @@ const HomePage = () => {
 
                 {/* Grid 3 cột cho thẻ chiến dịch */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {mockCampaigns.map((camp) => {
-                        const percent = Math.round((camp.current / camp.target) * 100);
+                    {urgentCampaigns.map((camp) => {
+                        const current = Number(camp.currentAmount) || 0;
+                        const target = Number(camp.targetAmount) || 0;
+
+                        const percent = target > 0 ? Math.min(Math.round((current / target) * 100), 100) : 0;
+
+                        let daysLeft = 0;
+                        if (camp.endDate) {
+                            const endDate = new Date(camp.endDate);
+                            const today = new Date();
+                            const diffDays = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
+                            daysLeft = diffDays > 0 ? diffDays : 0;
+                        }
 
                         return (
                             <div key={camp.id} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-xl transition-all group flex flex-col">
                                 {/* Ảnh Thumbnails */}
-                                <div className="relative h-56 overflow-hidden">
-                                    <img
-                                        src={camp.image}
-                                        alt={camp.title}
-                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                                    />
-                                    <Tag className="absolute top-4 left-4 bg-white/90! border-none! text-primary! font-bold px-3 py-1 rounded-md">
-                                        {camp.category}
-                                    </Tag>
-                                </div>
-
-                                {/* Nội dung thẻ */}
-                                <div className="p-6 flex flex-col flex-1">
-                                    <h3 className="text-xl font-bold text-primary! line-clamp-2 mb-4 group-hover:text-brand! transition-colors">
-                                        {camp.title}
-                                    </h3>
-
-                                    <div className="mt-auto">
-                                        {/* Thanh tiến độ */}
-                                        <div className="mb-2">
-                                            <div className="flex justify-between text-sm font-semibold mb-1">
-                                                <span className="text-brand!">{formatMoney(camp.current)}</span>
-                                                <span className="text-gray-500">{percent}%</span>
-                                            </div>
-                                            <Progress
-                                                percent={percent}
-                                                showInfo={false}
-                                                strokeColor="#2563EB"
-                                                className="m-0!"
-                                            />
-                                        </div>
-
-                                        <div className="flex justify-between text-sm text-gray-500 mb-6">
-                                            <span>Mục tiêu: {formatMoney(camp.target)}</span>
-                                            <span className="font-medium text-cta!">{camp.daysLeft} ngày còn lại</span>
-                                        </div>
-
-                                        {/* Nút hành động */}
-                                        <Button type="primary" className="w-full bg-primary! hover:bg-brand! text-white! font-bold h-12 rounded-xl transition-colors">
-                                            QUYÊN GÓP
-                                        </Button>
+                                <Link
+                                    to={`/campaigns/${camp.id}`}
+                                    className='cursor-pointer'
+                                >
+                                    <div className="relative h-56 overflow-hidden">
+                                        <img
+                                            src={camp.imageUrl || 'https://via.placeholder.com/800x400'}
+                                            alt={camp.title}
+                                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                        />
+                                        <Tag className="absolute top-4 left-4 bg-white/90! border-none! text-primary! font-bold px-3 py-1 rounded-md">
+                                            {camp.category}
+                                        </Tag>
                                     </div>
-                                </div>
+
+                                    {/* Nội dung thẻ */}
+                                    <div className="p-6 flex flex-col flex-1">
+                                        <h3 className="text-xl font-bold text-primary! line-clamp-2 mb-4 group-hover:text-brand! transition-colors">
+                                            {camp.title}
+                                        </h3>
+
+                                        <div className="mt-auto">
+                                            {/* Thanh tiến độ */}
+                                            <div className="mb-2">
+                                                <div className="flex justify-between text-sm font-semibold mb-1">
+                                                    <span className="text-brand!">{formatMoney(current)}</span>
+                                                    <span className="text-gray-500">{percent}%</span>
+                                                </div>
+                                                <Progress
+                                                    percent={percent}
+                                                    showInfo={false}
+                                                    strokeColor="#2563EB"
+                                                    className="m-0!"
+                                                />
+                                            </div>
+
+                                            <div className="flex justify-between text-sm text-gray-500 mb-6">
+                                                <span>Mục tiêu: {formatMoney(target)}</span>
+                                                <span className="font-medium text-cta!">{daysLeft} ngày còn lại</span>
+                                            </div>
+
+                                            {/* Nút hành động */}
+                                            {/* <Link to={`/campaigns/${camp.id}/donate`}>
+                                            <Button type="primary" className="w-full bg-primary! hover:bg-brand! text-white! font-bold h-12 rounded-xl transition-colors">
+                                                QUYÊN GÓP
+                                            </Button>
+                                        </Link> */}
+                                        </div>
+                                    </div>
+                                </Link>
                             </div>
                         );
                     })}

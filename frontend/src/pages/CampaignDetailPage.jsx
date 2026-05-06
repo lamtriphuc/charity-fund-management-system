@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Progress, Button, Tag, Tabs, Table, Avatar, Card } from 'antd';
 import { HeartFilled, ShareAltOutlined, HistoryOutlined, SafetyOutlined } from '@ant-design/icons';
 import { campaignService } from '../services/campaignService';
+import { formatMoney } from '../utils/helper';
 
 const CampaignDetailPage = () => {
     const { id } = useParams();
@@ -11,33 +12,37 @@ const CampaignDetailPage = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Giả lập Fetch data (Thay bằng fetch thực tế từ campaignService)
-        setTimeout(() => {
-            setCampaign({
-                id,
-                title: 'Xây trường mầm non bản vùng cao',
-                description: 'Hiện tại các em nhỏ tại bản... đang phải học trong ngôi trường tạm bợ bằng tranh tre nứa lá. Chúng tôi kêu gọi cộng đồng chung tay xây dựng 3 phòng học kiên cố...',
-                image: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=1200&auto=format&fit=crop',
-                targetAmount: 500000000,
-                currentAmount: 350000000,
-                daysLeft: 15,
-                category: 'Giáo dục',
-                organizer: 'Quỹ Hy Vọng',
-                verified: true
-            });
-            setDonations([
-                { id: '1', name: 'Nguyễn Văn A', amount: 500000, time: '2 giờ trước', message: 'Chúc các con sớm có trường mới' },
-                { id: '2', name: 'Mạnh thường quân', amount: 10000000, time: '5 giờ trước', message: 'Chung tay vì cộng đồng' },
-                { id: '3', name: 'Ẩn danh', amount: 200000, time: '1 ngày trước', message: '' },
-            ]);
-            setLoading(false);
-        }, 500);
+        const fetchCampaignDetail = async () => {
+            setLoading(true)
+            try {
+                const campaignRes = await campaignService.getById(id);
+                const donationRes = await campaignService.getDonations(id);
+                setCampaign(campaignRes);
+                setDonations(donationRes);
+            } catch (error) {
+                console.error("Lỗi tải chi tiết chiến dịch", error);
+            } finally {
+                setLoading(false)
+            }
+        };
+
+        fetchCampaignDetail();
     }, [id]);
 
     if (loading) return <div className="text-center py-20 text-xl font-bold">Đang tải dữ liệu...</div>;
 
-    const percent = Math.round((campaign.currentAmount / campaign.targetAmount) * 100);
-    const formatMoney = (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
+    const current = Number(campaign.currentAmount) || 0;
+    const target = Number(campaign.targetAmount) || 0;
+
+    const percent = target > 0 ? Math.min(Math.round((current / target) * 100), 100) : 0;
+
+    let daysLeft = 0;
+    if (campaign.endDate) {
+        const endDate = new Date(campaign.endDate);
+        const today = new Date();
+        const diffDays = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
+        daysLeft = diffDays > 0 ? diffDays : 0;
+    }
 
     return (
         <div className="max-w-300 mx-auto py-10 px-4">
@@ -50,11 +55,11 @@ const CampaignDetailPage = () => {
                 <h1 className="text-4xl font-black text-primary! leading-tight">{campaign.title}</h1>
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-12">
+            <div className="flex flex-col lg:flex-row gap-4">
                 {/* CỘT TRÁI (70%) - NỘI DUNG */}
                 <div className="lg:w-2/3">
                     <div className="rounded-3xl overflow-hidden mb-10 shadow-lg">
-                        <img src={campaign.image} alt="Banner" className="w-full h-100 object-cover" />
+                        <img src={campaign.imageUrl} alt="Banner" className="w-full h-100 object-cover" />
                     </div>
 
                     <Tabs
@@ -85,9 +90,9 @@ const CampaignDetailPage = () => {
                                         <Table
                                             dataSource={donations}
                                             columns={[
-                                                { title: 'Người ủng hộ', dataIndex: 'name', key: 'name', render: (text) => <span className="font-bold">{text}</span> },
+                                                { title: 'Người ủng hộ', dataIndex: 'donorName', key: 'name', render: (text) => <span className="font-bold">{text}</span> },
                                                 { title: 'Số tiền', dataIndex: 'amount', key: 'amount', render: (val) => <span className="text-brand! font-bold">{formatMoney(val)}</span> },
-                                                { title: 'Thời gian', dataIndex: 'time', key: 'time' },
+                                                { title: 'Thời gian', dataIndex: 'createdAt', key: 'time', render: (val) => new Date(val).toLocaleString('vi-VN') },
                                                 { title: 'Lời chúc', dataIndex: 'message', key: 'message', className: 'text-gray-500 italic' }
                                             ]}
                                             pagination={false}
@@ -121,25 +126,17 @@ const CampaignDetailPage = () => {
                             </div>
                             <div className="bg-gray-50 p-4 rounded-2xl text-center">
                                 <p className="text-xs text-gray-400 uppercase font-bold m-0">Ngày còn lại</p>
-                                <p className="text-xl font-bold text-cta! m-0">{campaign.daysLeft}</p>
+                                <p className="text-xl font-bold text-cta! m-0">{daysLeft}</p>
                             </div>
                         </div>
-
-                        <Button
-                            type="primary"
-                            className="w-full bg-cta! h-16 rounded-2xl text-xl font-black text-white! border-none! shadow-lg shadow-orange-200! hover:scale-105 transition-transform"
-                        >
-                            QUYÊN GÓP NGAY
-                        </Button>
-
-                        <div className="mt-6 flex gap-4">
-                            <Button className="flex-1 h-12 rounded-xl font-bold flex items-center justify-center gap-2 border-gray-200!">
-                                <ShareAltOutlined /> Chia sẻ
+                        <Link to={`/campaigns/${campaign.id}/donate`}>
+                            <Button
+                                type="primary"
+                                className="w-full bg-cta! h-16 rounded-2xl text-xl font-black text-white! border-none! shadow-lg shadow-orange-200! hover:scale-105 transition-transform"
+                            >
+                                ỦNG HỘ NGAY
                             </Button>
-                            <Button className="h-12 w-12 rounded-xl flex items-center justify-center border-gray-200!">
-                                <HeartFilled className="text-red-500" />
-                            </Button>
-                        </div>
+                        </Link>
 
                         <div className="mt-8 pt-8 border-t border-gray-100 flex items-center gap-4">
                             <Avatar size={48} className="bg-brand!">QT</Avatar>

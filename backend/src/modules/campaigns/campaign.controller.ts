@@ -9,35 +9,49 @@ import { SearchService } from '../search/search.service';
 @Controller('campaigns')
 export class CampaignController {
     constructor(
-        private readonly campaignsService: CampaignService,
+        private readonly campaignService: CampaignService,
         private readonly searchService: SearchService
     ) { }
 
     // PUBLIC API
     @Get()
     findAll(@Query() query: GetCampaignsQueryDto) {
-        return this.campaignsService.findAll(query);
+        return this.campaignService.findAll(query);
+    }
+
+
+    @Get('urgent')
+    async getUrgent() {
+        return this.campaignService.getUrgentCampaigns();
+    }
+
+    // @Get('search')
+    // async search(
+    //     @Query('keyword') keyword?: string,
+    //     @Query('category') category?: string
+    // ) {
+    //     const data = await this.searchService.searchCampaigns(keyword, category);
+    //     return { data };
+    // }
+
+    @Get('search')
+    async searchES(
+        @Query('keyword') keyword?: string,
+        @Query('category') category?: string,
+        @Query('page') page?: number,
+        @Query('limit') limit?: number
+    ) {
+        return this.searchService.searchCampaigns(
+            keyword,
+            category,
+            page || 1,
+            limit || 9
+        );
     }
 
     @Get(':id')
     findOne(@Param('id') id: string) {
-        return this.campaignsService.findOne(id);
-    }
-
-    @Get('search')
-    async search(@Query('q') keyword: string) {
-        if (!keyword) {
-            return []; // Nếu không gõ gì thì trả về rỗng
-        }
-
-        // Gọi thẳng vào Elasticsearch, BỎ QUA HOÀN TOÀN POSTGRESQL!
-        const results = await this.searchService.searchCampaigns(keyword);
-
-        return {
-            message: 'Tìm kiếm siêu tốc với Elasticsearch',
-            total: results.length,
-            data: results
-        };
+        return this.campaignService.findOne(id);
     }
 
     // PROTECTED API - ADMIN
@@ -48,7 +62,7 @@ export class CampaignController {
     create(
         @Body() createCampaignDto: CreateCampaignDto
     ) {
-        return this.campaignsService.create(createCampaignDto);
+        return this.campaignService.create(createCampaignDto);
     }
 
     @Patch(':id/status')
@@ -58,6 +72,6 @@ export class CampaignController {
         @Param('id') id: string,
         @Body() updateCampaignStatusDto: UpdateCampaignStatusDto
     ) {
-        return this.campaignsService.updateStatus(id, updateCampaignStatusDto);
+        return this.campaignService.updateStatus(id, updateCampaignStatusDto);
     }
 }

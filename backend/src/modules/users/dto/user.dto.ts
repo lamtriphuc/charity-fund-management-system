@@ -1,4 +1,4 @@
-import { IsEnum, IsObject, IsOptional, IsString } from 'class-validator';
+import { IsDateString, IsEnum, IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
 import { KycStatus } from '../../../common/enums/kyc-status.enum'; // File enum bạn đã tạo ở bài trước
 import { KycProfileStatus } from 'src/common/enums/kyc-profile-status.enum';
 
@@ -17,5 +17,48 @@ export class ApproveKycDto {
 
     @IsString()
     @IsOptional()
-    roleName?: string; // Truyền 'VOLUNTEER' nếu duyệt đạt, 'DONOR' nếu từ chối hạ cấp lại
+    roleName?: string;
+}
+
+export class UpdateUserDto {
+    @IsOptional()
+    @IsString()
+    @MaxLength(100)
+    fullName?: string;
+
+    @IsOptional()
+    @IsString()
+    @MaxLength(20)
+    phone?: string;
+
+    @IsOptional()
+    @IsDateString({}, { message: 'Ngày sinh phải đúng định dạng (YYYY-MM-DD)' })
+    dob?: string;
+
+    @IsOptional()
+    @IsString()
+    @MaxLength(20)
+    gender?: string;
+
+    @IsOptional()
+    @IsString()
+    @MaxLength(255)
+    address?: string;
+
+    @IsOptional()
+    @IsString()
+    bio?: string;
+
+    // banking
+    @IsOptional()
+    @IsString()
+    bankName?: string;
+
+    @IsOptional()
+    @IsString()
+    bankAccountNumber?: string;
+
+    @IsOptional()
+    @IsString()
+    bankAccountName?: string;
 }

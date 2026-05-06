@@ -17,6 +17,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { CronModule } from './modules/cron/cron.module';
 import { StatementModule } from './modules/statements/statements.module';
 import { SearchModule } from './modules/search/search.module';
+import { SeederModule } from './seeder/seeder.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { SearchModule } from './modules/search/search.module';
         synchronize: true
       })
     }),
+    SeederModule,
     UsersModule,
     CampaignsModule,
     DonationModule,

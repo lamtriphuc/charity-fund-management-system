@@ -2,8 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Campaign } from './entities/campaign.entity';
 import { Repository } from 'typeorm';
-import { CreateCampaignDto, GetCampaignsQueryDto, UpdateCampaignStatusDto } from './dto/campaign.dto';
-import { CampaignStatus } from 'src/modules/campaigns/dto/campaign.enum';
+import { CampaignStatus, CreateCampaignDto, GetCampaignsQueryDto, UpdateCampaignStatusDto } from './dto/campaign.dto';
 import { Account } from '../ledger/entities/account.entity';
 import { AccountType } from '../ledger/dto/ledger.dto';
 
@@ -68,6 +67,14 @@ export class CampaignService {
             throw new NotFoundException(`Không tìm thấy chiến dịch với ID: ${id}`);
         }
         return campaign;
+    }
+
+    async getUrgentCampaigns() {
+        return this.campaignRepository.find({
+            where: { status: CampaignStatus.ACTIVE },
+            order: { endDate: 'ASC' },
+            take: 6
+        });
     }
 
     async updateStatus(id: string, updateDto: UpdateCampaignStatusDto) {

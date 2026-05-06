@@ -2,14 +2,14 @@ import { BadRequestException, Body, Controller, Get, Param, Patch, UploadedFile,
 import { UserService } from './user.service';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
-import { ApproveKycDto, SubmitKycDto } from './dto/user.dto';
+import { ApproveKycDto, SubmitKycDto, UpdateUserDto } from './dto/user.dto';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('users')
 export class UserController {
-    constructor(private readonly usersService: UserService) { }
+    constructor(private readonly userService: UserService) { }
 
     @Patch('me/kyc')
     @UseGuards(AuthGuard('jwt'))
@@ -29,7 +29,7 @@ export class UserController {
             portraitImage?: Express.Multer.File[]
         }
     ) {
-        return this.usersService.submitKyc(
+        return this.userService.submitKyc(
             user.id,
             dto,
             files?.frontImage?.[0],
@@ -46,7 +46,7 @@ export class UserController {
         @Param('kycId') kycId: string,
         @Body() dto: ApproveKycDto
     ) {
-        return this.usersService.approveKyc(kycId, dto);
+        return this.userService.approveKyc(kycId, dto);
     }
 
     @Patch('/me/avatar')
@@ -64,6 +64,15 @@ export class UserController {
             throw new BadRequestException('Chỉ chấp nhận file định dạng hình ảnh!');
         }
 
-        return this.usersService.updateAvatar(user.id, file);
+        return this.userService.updateAvatar(user.id, file);
+    }
+
+    @Patch('me')
+    @UseGuards(AuthGuard('jwt'))
+    async updateProfile(
+        @CurrentUser() user: any,
+        @Body() dto: UpdateUserDto
+    ) {
+        return this.userService.updateProfile(user.id, dto);
     }
 }

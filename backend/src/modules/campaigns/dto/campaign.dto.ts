@@ -1,6 +1,17 @@
 import { Type } from "class-transformer";
 import { IsDate, IsEnum, IsIn, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from "class-validator";
-import { CampaignStatus, CampaignType } from "src/modules/campaigns/dto/campaign.enum";
+
+export enum CampaignType {
+    FLEXIBLE = 'FLEXIBLE',
+    FIXED = 'FIXED',
+}
+
+export enum CampaignStatus {
+    ACTIVE = 'ACTIVE',
+    COMPLETED = 'COMPLETED',
+    CLOSED = 'CLOSED',
+    SUSPENDED = 'SUSPENDED',
+}
 
 export class CreateCampaignDto {
     @IsString()
@@ -17,6 +28,10 @@ export class CreateCampaignDto {
 
     @IsEnum(CampaignType, { message: 'Loại chiến dịch không hợp lệ' })
     campaignType: string;
+
+    @IsOptional()
+    @IsString()
+    imageUrl?: string;
 
     @Type(() => Date)
     @IsDate({ message: 'Ngày bắt đầu không hợp lệ' })

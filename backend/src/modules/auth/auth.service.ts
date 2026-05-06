@@ -64,7 +64,6 @@ export class AuthService {
             email: dto.email,
             hashedPassword,
             fullName: dto.fullName,
-            kycStatus: KycStatus.PENDING,
             role: defaultRole
         });
 
@@ -143,7 +142,6 @@ export class AuthService {
                     fullName: name,
                     avatarUrl: picture, // Lấy ảnh từ Google
                     hashedPassword: randomPassword,
-                    kycStatus: KycStatus.PENDING,
                     role: defaultRole
                 });
                 await this.userRepository.save(user);

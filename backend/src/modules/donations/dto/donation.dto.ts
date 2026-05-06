@@ -14,7 +14,7 @@ export enum PaymentStatus {
 
 export class CreateDonationDto {
     @IsNumber({}, { message: 'Số tiền phải là một số' })
-    @Min(10000, { message: 'Số tiền quyên góp tối thiểu là 10,000 VNĐ' })
+    @Min(1000, { message: 'Số tiền quyên góp tối thiểu là 1,000 VNĐ' })
     amount: number;
 
     @IsString()
@@ -28,9 +28,6 @@ export class CreateDonationDto {
     @IsString()
     @IsOptional()
     donorName?: string;
-
-    @IsEnum(PaymentMethod, { message: 'Phương thức thanh toán không hợp lệ' })
-    paymentMethod: PaymentMethod;
 }
 
 // DTO giả lập Webhook của VNPay/Momo gọi về server của bạn

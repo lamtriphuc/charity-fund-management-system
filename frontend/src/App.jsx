@@ -19,9 +19,10 @@ import AdminLedger from './pages/admin/AdminLedger'
 import AdminUsers from './pages/admin/AdminUsers'
 import ProfilePage from './pages/ProfilePage'
 import { GoogleOAuthProvider } from '@react-oauth/google'
+import DonatePage from './pages/DonatePage'
 
 function App() {
-  const restoreAuth = useAuthStore((state) => state.restoreAuth);
+  const { restoreAuth, logout } = useAuthStore();
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
@@ -77,6 +78,7 @@ function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/campaigns" element={<CampaignsPage />} />
               <Route path="/campaigns/:id" element={<CampaignDetailPage />} />
+              <Route path="/campaigns/:id/donate" element={<DonatePage />} />
               <Route path="/profile" element={<ProfilePage />} />
             </Route>
 

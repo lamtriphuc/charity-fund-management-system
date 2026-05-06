@@ -6,8 +6,8 @@ export const userService = {
         return api.get('/users', { params });
     },
     // Cập nhật trạng thái hoặc quyền hạn
-    update: (id, data) => {
-        return api.patch(`/users/${id}`, data);
+    updateProfile: (data) => {
+        return api.patch('/users/me', data);
     },
 
     updateAvatar: (file) => {
