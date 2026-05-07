@@ -11,7 +11,7 @@ export class Account {
     code: string; // VD: 'CASH_BANK_VCB', 'CAMP_123_REVENUE', 'CAMP_123_EXPENSE'
 
     @Column({ name: 'account_type', type: 'enum', enum: AccountType })
-    accountType: string; // ASSET, LIABILITY, REVENUE, EXPENSE
+    accountType: AccountType; // ASSET, LIABILITY
 
     @Column({ type: 'varchar' })
     name: string;

@@ -1,5 +1,4 @@
 import { DisbursementModule } from './modules/disbursements/disbursement.module';
-import { SupportRequestModule } from './modules/support-requests/support-request.module';
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -12,10 +11,8 @@ import { SystemModule } from './modules/system/system.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CloudinaryModule } from './common/cloudinary/cloudinary.module';
-import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { CronModule } from './modules/cron/cron.module';
-import { StatementModule } from './modules/statements/statements.module';
 import { SearchModule } from './modules/search/search.module';
 import { SeederModule } from './seeder/seeder.module';
 
@@ -44,15 +41,12 @@ import { SeederModule } from './seeder/seeder.module';
     UsersModule,
     CampaignsModule,
     DonationModule,
-    DashboardModule,
     LedgerModule,
     SystemModule,
     AuthModule,
-    SupportRequestModule,
     DisbursementModule,
     CloudinaryModule,
     CronModule,
-    StatementModule,
     SearchModule,
 
     ScheduleModule.forRoot()

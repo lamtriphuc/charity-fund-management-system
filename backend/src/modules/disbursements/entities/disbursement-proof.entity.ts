@@ -21,7 +21,7 @@ export class DisbursementProof {
     flaggedReason?: string | null;
 
     @Column({ name: 'verification_status', type: 'enum', enum: ProofStatus, default: ProofStatus.PENDING_AUDIT })
-    verificationStatus: string; 
+    verificationStatus: ProofStatus;
 
     @CreateDateColumn({ name: 'created_at' })
     createdAt: Date;

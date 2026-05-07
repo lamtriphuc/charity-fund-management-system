@@ -5,6 +5,7 @@ import { LedgerTransaction } from "./entities/ledger-transaction.entity";
 import { stringify } from "querystring";
 import { LedgerLine } from "./entities/ledger-line.entity";
 import { Account } from "./entities/account.entity";
+import { AccountType, LedgerReferenceType } from "./dto/ledger.dto";
 
 export interface JournalEntry {
     accountId: string;
@@ -23,7 +24,7 @@ export class LedgerService {
 
     async recordTransaction(
         manager: EntityManager,
-        referenceType: string,
+        referenceType: LedgerReferenceType,
         referenceId: string,
         entries: JournalEntry[]
     ) {
@@ -85,9 +86,9 @@ export class LedgerService {
             if (!account) throw new InternalServerErrorException(`Không tìm thấy Tài khoản: ${entry.accountId}`);
 
             // Logic cộng trừ tùy theo loại tài khoản (ASSET vs LIABILITY)
-            if (account.accountType === 'ASSET' || account.accountType === 'EXPENSE') {
+            if (account.accountType === AccountType.ASSET) {
                 account.balance = Number(account.balance) + (entry.isDebit ? entry.amount : -entry.amount);
-            } else if (account.accountType === 'LIABILITY' || account.accountType === 'REVENUE') {
+            } else if (account.accountType === AccountType.LIABILITY) {
                 account.balance = Number(account.balance) + (entry.isDebit ? -entry.amount : entry.amount);
             }
 
@@ -122,7 +123,7 @@ export class LedgerService {
 
             // 2. Tạo Transaction mới cho việc Hoàn tiền
             const transaction = queryRunner.manager.create(LedgerTransaction, {
-                referenceType: 'REFUND',
+                referenceType: LedgerReferenceType.REFUND,
                 referenceId: donationId,
                 description: `Hoàn tiền tự động cho giao dịch ${txReference}`,
             });

@@ -1,12 +1,8 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, Relation } from 'typeorm';
 
 import { User } from './user.entity';
+import { KycProfileStatus } from '../dto/user.dto';
 
-export enum KycProfileStatus {
-    PENDING = 'PENDING',
-    APPROVED = 'APPROVED',
-    REJECTED = 'REJECTED'
-}
 
 @Entity('kyc_profiles')
 export class KycProfile {

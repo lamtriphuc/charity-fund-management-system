@@ -19,8 +19,8 @@ export class Campaign {
     @Column({ type: 'varchar' })
     campaignType: string; // FLEXIBLE, FIXED
 
-    @Column({ type: 'enum', enum: CampaignStatus, default: CampaignStatus.ACTIVE })
-    status: string;
+    @Column({ type: 'enum', enum: CampaignStatus, default: CampaignStatus.PENDING })
+    status: CampaignStatus;
 
     @Column({ name: 'current_amount', type: 'bigint', default: 0 })
     currentAmount: number;

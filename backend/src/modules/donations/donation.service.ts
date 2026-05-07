@@ -8,12 +8,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Donation } from './entities/donation.entity';
 import { DataSource, Repository } from 'typeorm';
 import { Campaign } from '../campaigns/entities/campaign.entity';
-import { CreateDonationDto, WebhookPaymentDto } from './dto/donation.dto';
+import { CreateDonationDto, DonationStatus, WebhookPaymentDto } from './dto/donation.dto';
 import { User } from '../users/entities/user.entity';
 import { LedgerService } from '../ledger/ledger.service';
 import { Account } from '../ledger/entities/account.entity';
 import { PayOS } from '@payos/node';
 import { ConfigService } from '@nestjs/config';
+import { CampaignStatus } from '../campaigns/dto/campaign.dto';
+import { LedgerReferenceType } from '../ledger/dto/ledger.dto';
 
 @Injectable()
 export class DonationService {
@@ -44,7 +46,7 @@ export class DonationService {
         const campaign = await this.campaignRepository.findOne({
             where: { id: campaignId },
         });
-        if (!campaign || campaign.status !== 'ACTIVE')
+        if (!campaign || campaign.status !== CampaignStatus.ACTIVE)
             throw new BadRequestException('Chiến dịch không tồn tại hoặc đã đóng.');
 
         const orderCode = Number(
@@ -77,7 +79,7 @@ export class DonationService {
             isAnonymous: dto.isAnonymous,
             donorName: finalDonorName,
             txReference: txReference,
-            status: 'PENDING',
+            status: DonationStatus.PENDING,
         });
 
         await this.donationRepository.save(donation);
@@ -127,7 +129,7 @@ export class DonationService {
     async cancelPendingDonation(txReference: string) {
         await this.donationRepository.delete({
             txReference: txReference,
-            status: 'PENDING',
+            status: DonationStatus.PENDING,
         });
         return { message: 'Đã dọn dẹp giao dịch rác' };
     }
@@ -168,11 +170,11 @@ export class DonationService {
             });
 
             if (!donation) throw new NotFoundException('Không tìm thấy giao dịch');
-            if (donation.status === 'SUCCESS')
+            if (donation.status === DonationStatus.SUCCESS)
                 return { message: 'Giao dịch này đã được xử lý rồi' };
 
             if (isSuccess) {
-                donation.status = 'SUCCESS';
+                donation.status = DonationStatus.SUCCESS;
                 await queryRunner.manager.save(donation);
 
                 // TÍCH HỢP INTERNAL LEDGER
@@ -191,7 +193,7 @@ export class DonationService {
 
                 await this.ledgerService.recordTransaction(
                     queryRunner.manager,
-                    'DONATION',
+                    LedgerReferenceType.DONATION,
                     donation.id,
                     [
                         {
@@ -213,7 +215,7 @@ export class DonationService {
                     Number(campaign.currentAmount) + Number(donation.amount);
                 await queryRunner.manager.save(campaign);
             } else {
-                donation.status = 'FAILED';
+                donation.status = DonationStatus.FAILED;
                 await queryRunner.manager.save(donation);
             }
 
@@ -229,7 +231,7 @@ export class DonationService {
 
     async getDonationsByCampaign(campaignId: string) {
         const donations = await this.donationRepository.find({
-            where: { campaign: { id: campaignId }, status: 'SUCCESS' },
+            where: { campaign: { id: campaignId }, status: DonationStatus.SUCCESS },
             order: { createdAt: 'DESC' },
             relations: ['donor'],
         });

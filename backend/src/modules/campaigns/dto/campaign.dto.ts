@@ -7,9 +7,11 @@ export enum CampaignType {
 }
 
 export enum CampaignStatus {
+    PENDING = 'PENDING',
+    REJECTED = 'REJECTED',
     ACTIVE = 'ACTIVE',
     COMPLETED = 'COMPLETED',
-    CLOSED = 'CLOSED',
+    CLOSED = 'CLOSED', // = chưa hoàn thành => refund tiền
     SUSPENDED = 'SUSPENDED',
 }
 
@@ -23,11 +25,11 @@ export class CreateCampaignDto {
     description?: string;
 
     @IsNumber()
-    @Min(10000, { message: 'Mục tiêu phải lớn hơn 10,000 VNĐ' })
+    @Min(1000000, { message: 'Mục tiêu phải lớn hơn 1,000,000 VNĐ' })
     targetAmount: number;
 
     @IsEnum(CampaignType, { message: 'Loại chiến dịch không hợp lệ' })
-    campaignType: string;
+    campaignType: CampaignType;
 
     @IsOptional()
     @IsString()
@@ -44,7 +46,7 @@ export class CreateCampaignDto {
 
 export class UpdateCampaignStatusDto {
     @IsEnum(CampaignStatus, { message: 'Trạng thái không hợp lệ' })
-    status: string;
+    status: CampaignStatus;
 }
 
 // DTO dùng cho Query Params trên URL (Phân trang & Lọc)
@@ -63,7 +65,7 @@ export class GetCampaignsQueryDto {
 
     @IsOptional()
     @IsEnum(CampaignStatus)
-    status?: string;
+    status?: CampaignStatus;
 
     @IsOptional()
     @IsIn(['ASC', 'DESC'])

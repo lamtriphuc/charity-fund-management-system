@@ -1,9 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { User, UserKycStatus } from "./entities/user.entity";
+import { User } from "./entities/user.entity";
 import { Role } from "./entities/role.entity";
-import { ApproveKycDto, SubmitKycDto, UpdateUserDto } from "./dto/user.dto";
+import { ApproveKycDto, UpdateUserDto, UserKycStatus } from "./dto/user.dto";
 import { KycProfile } from "./entities/kyc-profile.entity";
 import { KycProfileStatus } from "src/common/enums/kyc-profile-status.enum";
 import { KycStatus } from "src/common/enums/kyc-status.enum";
@@ -60,7 +60,6 @@ export class UserService {
 
     async submitKyc(
         userId: string,
-        dto: SubmitKycDto,
         frontFile?: Express.Multer.File,
         backFile?: Express.Multer.File,
         portraitFile?: Express.Multer.File

@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, Relation } from 'typeorm';
 import { LedgerTransaction } from './ledger-transaction.entity';
 import { Account } from './account.entity';
 
@@ -7,7 +7,7 @@ export class LedgerLine {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
-    @ManyToOne(() => LedgerTransaction, tx => tx.lines)
+    @ManyToOne(() => LedgerTransaction)
     @JoinColumn({ name: 'ledger_transaction_id' })
     ledgerTransaction: LedgerTransaction;
 

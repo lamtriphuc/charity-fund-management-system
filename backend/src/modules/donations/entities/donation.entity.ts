@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Campaign } from '../../campaigns/entities/campaign.entity';
-import { PaymentStatus } from '../dto/donation.dto';
+import { DonationStatus } from '../dto/donation.dto';
 
 @Entity('donations')
 export class Donation {
@@ -34,8 +34,8 @@ export class Donation {
     @Column({ name: 'tx_reference', type: 'varchar', unique: true })
     txReference: string;
 
-    @Column({ type: 'enum', enum: PaymentStatus, default: PaymentStatus.PENDING })
-    status: string;
+    @Column({ type: 'enum', enum: DonationStatus, default: DonationStatus.PENDING })
+    status: DonationStatus;
 
     @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
     createdAt: Date

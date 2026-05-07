@@ -5,6 +5,8 @@ import { Donation } from "../donations/entities/donation.entity";
 import { LessThan, Repository } from "typeorm";
 import { LedgerService } from "../ledger/ledger.service";
 import { Cron, CronExpression } from "@nestjs/schedule";
+import { CampaignStatus, CampaignType } from "../campaigns/dto/campaign.dto";
+import { DonationStatus } from "../donations/dto/donation.dto";
 
 @Injectable()
 export class RefundCronService {
@@ -26,8 +28,8 @@ export class RefundCronService {
         // Tìm các chiến dịch Fixed, Đang active, Đã quá hạn, và Chưa đạt mục tiêu
         const failedCampaigns = await this.campaignRepository.find({
             where: {
-                campaignType: 'FIXED',          // Giả định bạn có cột type
-                status: 'Active',
+                campaignType: CampaignType.FIXED,          // Giả định bạn có cột type
+                status: CampaignStatus.ACTIVE,
                 endDate: LessThan(now), // Đã hết hạn
             },
         });
@@ -38,12 +40,12 @@ export class RefundCronService {
                 this.logger.warn(` Chiến dịch [${campaign.title}] THẤT BẠI. Bắt đầu hoàn tiền...`);
 
                 // 1. Đổi trạng thái chiến dịch thành Failed/Refunding
-                campaign.status = 'FAILED';
+                campaign.status = CampaignStatus.CLOSED;
                 await this.campaignRepository.save(campaign);
 
                 // 2. Lấy toàn bộ danh sách Quyên góp thành công của chiến dịch này
                 const donations = await this.donationRepository.find({
-                    where: { campaign: { id: campaign.id }, status: 'SUCCESS' },
+                    where: { campaign: { id: campaign.id }, status: DonationStatus.SUCCESS },
                 });
 
                 // 3. Thực hiện hoàn tiền cho TỪNG người
@@ -58,7 +60,7 @@ export class RefundCronService {
                         );
 
                         // Cập nhật trạng thái Hóa đơn quyên góp
-                        donation.status = 'REFUNDED';
+                        donation.status = DonationStatus.REFUNDED;
                         await this.donationRepository.save(donation);
 
                         // Tích hợp: Bắn API qua Cổng thanh toán (VNPay/Momo) để trả tiền thật về thẻ (Nếu có hợp đồng Payout)
@@ -77,7 +79,7 @@ export class RefundCronService {
                 this.logger.log(` Hoàn tất xử lý chiến dịch [${campaign.title}]`);
             } else {
                 // Nếu đã đủ mục tiêu nhưng hết hạn -> Chuyển sang Completed để chờ Giải ngân
-                campaign.status = 'COMPLETED';
+                campaign.status = CampaignStatus.COMPLETED;
                 await this.campaignRepository.save(campaign);
             }
         }

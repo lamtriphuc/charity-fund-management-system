@@ -5,6 +5,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { SearchService } from '../search/search.service';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 
 @Controller('campaigns')
 export class CampaignController {
@@ -24,15 +25,6 @@ export class CampaignController {
     async getUrgent() {
         return this.campaignService.getUrgentCampaigns();
     }
-
-    // @Get('search')
-    // async search(
-    //     @Query('keyword') keyword?: string,
-    //     @Query('category') category?: string
-    // ) {
-    //     const data = await this.searchService.searchCampaigns(keyword, category);
-    //     return { data };
-    // }
 
     @Get('search')
     async searchES(
@@ -54,15 +46,41 @@ export class CampaignController {
         return this.campaignService.findOne(id);
     }
 
-    // PROTECTED API - ADMIN
+    // PROTECTED API - Volunteer
 
     @Post()
     @UseGuards(AuthGuard('jwt'), RolesGuard)
-    @Roles('ADMIN')
+    @Roles('VOLUNTEER')
     create(
+        @CurrentUser() user: any,
         @Body() createCampaignDto: CreateCampaignDto
     ) {
-        return this.campaignService.create(createCampaignDto);
+        const volunteerId = user.id;
+        return this.campaignService.create(volunteerId, createCampaignDto);
+    }
+
+    // PROTECTED API - ADMIN
+
+    @Patch(':id/approve')
+    @UseGuards(AuthGuard('jwt'), RolesGuard)
+    @Roles('ADMIN')
+    approveCampaign(
+        @CurrentUser() user: any,
+        @Param('id') id: string,
+    ) {
+        const adminId = user.id;
+        return this.campaignService.approveCampaign(id, adminId);
+    }
+
+    @Patch(':id/reject')
+    @UseGuards(AuthGuard('jwt'), RolesGuard)
+    @Roles('ADMIN')
+    rejectCampaign(
+        @Param('id') id: string,
+        @Body('reason') reason: string
+    ) {
+        if (!reason) throw new BadRequestException('Vui lòng cung cấp lý do từ chối');
+        return this.campaignService.rejectCampaign(id, reason);
     }
 
     @Patch(':id/status')
@@ -74,4 +92,6 @@ export class CampaignController {
     ) {
         return this.campaignService.updateStatus(id, updateCampaignStatusDto);
     }
+
+
 }

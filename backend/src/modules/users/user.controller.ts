@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, Get, Param, Patch, UploadedFile,
 import { UserService } from './user.service';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
-import { ApproveKycDto, SubmitKycDto, UpdateUserDto } from './dto/user.dto';
+import { ApproveKycDto, UpdateUserDto } from './dto/user.dto';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
@@ -22,7 +22,6 @@ export class UserController {
     )
     submitKyc(
         @CurrentUser() user: any,
-        @Body() dto: SubmitKycDto,
         @UploadedFiles() files: {
             frontImage?: Express.Multer.File[],
             backImage?: Express.Multer.File[],
@@ -31,7 +30,6 @@ export class UserController {
     ) {
         return this.userService.submitKyc(
             user.id,
-            dto,
             files?.frontImage?.[0],
             files?.backImage?.[0],
             files?.portraitImage?.[0]

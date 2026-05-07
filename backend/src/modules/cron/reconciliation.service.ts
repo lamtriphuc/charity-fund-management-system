@@ -10,6 +10,7 @@ import { LedgerTransaction } from "../ledger/entities/ledger-transaction.entity"
 import { LedgerLine } from "../ledger/entities/ledger-line.entity";
 
 import * as crypto from 'crypto';
+import { CampaignStatus } from "../campaigns/dto/campaign.dto";
 
 @Injectable()
 export class ReconciliationService {
@@ -24,7 +25,7 @@ export class ReconciliationService {
         @InjectRepository(LedgerLine) private readonly ledgerLineRepository: Repository<LedgerLine>,
     ) { }
 
-    // @Cron(CronExpression.EVERY_HOUR)
+    @Cron(CronExpression.EVERY_10_SECONDS)
     async handleReconciliation() {
         this.logger.log('Bắt đầu tiến trình Đối soát Kế toán tự động...');
 
@@ -91,7 +92,7 @@ export class ReconciliationService {
 
             // Lấy tất cả chiến dịch đang Active
             const campaigns = await this.campaignRepository.find({
-                where: { status: 'ACTIVE' }
+                where: { status: CampaignStatus.ACTIVE }
             });
 
             for (const campaign of campaigns) {
@@ -152,7 +153,7 @@ export class ReconciliationService {
                     this.logger.error(`\n PHÁT HIỆN GIAN LẬN TẠI CHIẾN DỊCH: [${campaign.title}]`);
                     this.logger.error(alertMessage);
 
-                    campaign.status = 'SUSPENDED';
+                    campaign.status = CampaignStatus.SUSPENDED;
                     await this.campaignRepository.save(campaign);
                     this.logger.warn(` Đã KHÓA chiến dịch ${campaign.id} để phong tỏa tài sản.\n`);
                 }

@@ -1,13 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, BeforeUpdate, BeforeRemove, OneToMany } from 'typeorm';
-import { LedgerLine } from './ledger-line.entity';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, BeforeUpdate, BeforeRemove } from 'typeorm';
+import { LedgerReferenceType } from '../dto/ledger.dto';
 
 @Entity('ledger_transactions')
 export class LedgerTransaction {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
-    @Column({ name: 'reference_type', type: 'varchar' })
-    referenceType: string; // DONATION, DISBURSEMENT, FUND_TRANSFER
+    @Column({ name: 'reference_type', type: 'enum', enum: LedgerReferenceType })
+    referenceType: LedgerReferenceType; // DONATION, DISBURSEMENT, FUND_TRANSFER
 
     @Column({ name: 'reference_id', type: 'uuid' })
     referenceId: string;
@@ -20,9 +20,6 @@ export class LedgerTransaction {
 
     @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
     createdAt: Date;
-
-    @OneToMany(() => LedgerLine, line => line.ledgerTransaction, { cascade: true })
-    lines: LedgerLine[];
 
     // Khóa chống sửa xóa
     @BeforeUpdate() preventUpdate() { throw new Error('Immutable Ledger'); }

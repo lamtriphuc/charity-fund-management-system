@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsString, Min, IsBoolean, IsEnum } from 'class-validator';
+import { IsNumber, IsOptional, IsString, Min, IsBoolean } from 'class-validator';
 
 export enum PaymentMethod {
     VNPAY = 'VNPAY',
@@ -6,10 +6,11 @@ export enum PaymentMethod {
     BANK_TRANSFER = 'BANK_TRANSFER',
 }
 
-export enum PaymentStatus {
-    PENDING,
-    SUCCESS,
-    FAILED
+export enum DonationStatus {
+    PENDING = 'PENDING',
+    SUCCESS = 'SUCCESS',
+    FAILED = 'FAILED',
+    REFUNDED = 'REFUNDED'
 }
 
 export class CreateDonationDto {

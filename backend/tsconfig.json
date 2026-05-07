@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "ignoreDeprecations": "6.0",
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "resolvePackageJsonExports": true,
@@ -22,9 +21,12 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
-    
     // THÊM
     "strictPropertyInitialization": false,
-    "types": ["node", "express", "multer"] 
+    "types": [
+      "node",
+      "express",
+      "multer"
+    ]
   }
 }

@@ -1,12 +1,7 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, Relation, UpdateDateColumn } from "typeorm";
 import { Role } from "./role.entity";
+import { UserKycStatus } from "../dto/user.dto";
 
-export enum UserKycStatus {
-    NONE = 'NONE',         // Chưa từng nộp
-    PENDING = 'PENDING',   // Đang chờ duyệt
-    VERIFIED = 'VERIFIED', // Đã là tình nguyện viên
-    REJECTED = 'REJECTED'  // Bị từ chối
-}
 
 @Entity('users')
 export class User {

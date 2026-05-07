@@ -7,10 +7,17 @@ export class TransferDisbursementDto {
     txReference: string;
 }
 
+export enum DisbursementStatus {
+    PENDING_APPROVAL = 'PENDING_APPROVAL', // Mới tạo => chờ chấp nhận
+    REJECTED = 'REJECTED',                 // Từ chối
+    PENDING_TRANSFER = 'PENDING_TRANSFER', // Đã chấp nhận => chờ chuyển tiền
+    TRANSFERRED = 'TRANSFERRED'            // Kế toán đã chuyển tiền thành công
+}
+
 export enum ProofStatus {
-    PENDING_AUDIT = 'PENDING_AUDIT',
-    VERIFIED = 'VERIFIED',
-    FLAGGED = 'FLAGGED',
+    PENDING_AUDIT = 'PENDING_AUDIT', // Chờ Ban kiểm soát duyệt
+    VERIFIED = 'VERIFIED',           // Hợp lệ
+    FLAGGED = 'FLAGGED',             // Bị đánh dấu gian lận/sai sót
 }
 
 // DTO cho Kiểm toán viên đánh giá hóa đơn

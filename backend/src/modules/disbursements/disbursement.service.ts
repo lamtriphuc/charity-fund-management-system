@@ -4,23 +4,77 @@ import { Disbursement } from './entities/disbursement.entity';
 import { DisbursementProof } from './entities/disbursement-proof.entity';
 import { CloudinaryFolder, CloudinaryService } from 'src/common/cloudinary/cloudinary.service';
 import { DataSource, Repository } from 'typeorm';
-import { AuditProofDto, ProofStatus, TransferDisbursementDto } from './dto/disbursement.dto';
+import { AuditProofDto, DisbursementStatus, ProofStatus, TransferDisbursementDto } from './dto/disbursement.dto';
 import { LedgerService } from '../ledger/ledger.service';
 import { ConfigService } from '@nestjs/config';
 import { Account } from '../ledger/entities/account.entity';
+import { Campaign } from '../campaigns/entities/campaign.entity';
+import { CampaignStatus } from '../campaigns/dto/campaign.dto';
+import { LedgerReferenceType } from '../ledger/dto/ledger.dto';
 
 @Injectable()
 export class DisbursementService {
     constructor(
         @InjectRepository(Disbursement) private disbursementRepository: Repository<Disbursement>,
         @InjectRepository(DisbursementProof) private proofRepository: Repository<DisbursementProof>,
+        @InjectRepository(Campaign) private campaignRepository: Repository<Campaign>,
         private cloudinaryService: CloudinaryService,
         private dataSource: DataSource,
         private readonly ledgerService: LedgerService,
         private readonly configService: ConfigService,
     ) { }
 
-    // 1. ADMIN XÁC NHẬN ĐÃ CHUYỂN TIỀN
+    async createDisbursementRequest(campaignId: string, volunteerId: string, amount: number, purpose: string) {
+        const campaign = await this.campaignRepository.findOne({
+            where: { id: campaignId }, relations: ['createdBy']
+        });
+
+        if (!campaign || campaign.status !== CampaignStatus.ACTIVE) throw new BadRequestException('Chiến dịch không hợp lệ');
+        if (campaign.createdBy.id !== volunteerId) throw new ForbiddenException('Chỉ chủ chiến dịch mới được rút tiền');
+
+        // Check số dư an toàn (Trừ đi các khoản đang treo chờ duyệt/chờ chuyển)
+        const pendingDisbursements = await this.disbursementRepository.find({
+            where: [
+                { campaign: { id: campaignId }, status: DisbursementStatus.PENDING_APPROVAL },
+                { campaign: { id: campaignId }, status: DisbursementStatus.PENDING_TRANSFER }
+            ]
+        });
+
+        const lockedAmount = pendingDisbursements.reduce((sum, d) => sum + Number(d.amount), 0);
+        const availableAmount = Number(campaign.currentAmount) - lockedAmount;
+
+        if (amount > availableAmount) {
+            throw new BadRequestException('Quỹ chiến dịch không đủ hoặc đang có khoản treo chưa xử lý.');
+        }
+
+        const disbursement = this.disbursementRepository.create({
+            campaign: { id: campaignId },
+            volunteer: { id: volunteerId },
+            amount,
+            purpose,
+            status: DisbursementStatus.PENDING_APPROVAL
+        });
+
+        return await this.disbursementRepository.save(disbursement);
+    }
+
+    async approveOrRejectRequest(disbursementId: string, isApproved: boolean, reason?: string) {
+        const disbursement = await this.disbursementRepository.findOne({ where: { id: disbursementId } });
+        if (!disbursement) throw new NotFoundException('Không tìm thấy phiếu yêu cầu');
+        if (disbursement.status !== DisbursementStatus.PENDING_APPROVAL) throw new BadRequestException('Phiếu này không ở trạng thái chờ duyệt');
+
+        if (!isApproved) {
+            if (!reason) throw new BadRequestException('Cần nhập lý do từ chối');
+            disbursement.status = DisbursementStatus.REJECTED;
+            disbursement.rejectionReason = reason;
+        } else {
+            disbursement.status = DisbursementStatus.PENDING_TRANSFER; // Chuyển qua cho kế toán ck
+        }
+
+        await this.disbursementRepository.save(disbursement);
+        return { message: isApproved ? 'Đã duyệt, chờ Kế toán chuyển khoản' : 'Đã từ chối phiếu yêu cầu' };
+    }
+
     async confirmTransfer(disbursementId: string, dto: TransferDisbursementDto) {
         const queryRunner = this.dataSource.createQueryRunner();
         await queryRunner.connect();
@@ -33,7 +87,7 @@ export class DisbursementService {
             });
 
             if (!disbursement) throw new NotFoundException('Không tìm thấy phiếu giải ngân');
-            if (disbursement.status !== 'PENDING_TRANSFER') {
+            if (disbursement.status !== DisbursementStatus.PENDING_TRANSFER) {
                 throw new BadRequestException('Phiếu này đã được chuyển tiền hoặc không hợp lệ');
             }
 
@@ -49,7 +103,7 @@ export class DisbursementService {
             }
 
             // 2. Cập nhật phiếu giải ngân
-            disbursement.status = 'TRANSFERRED';
+            disbursement.status = DisbursementStatus.TRANSFERRED;
             disbursement.txReference = dto.txReference;
             await queryRunner.manager.save(disbursement);
 
@@ -65,7 +119,7 @@ export class DisbursementService {
             // 3. TÍCH HỢP INTERNAL LEDGER: Ghi nhận bút toán xuất tiền
             await this.ledgerService.recordTransaction(
                 queryRunner.manager,
-                'DISBURSEMENT',
+                LedgerReferenceType.DISBURSEMENT,
                 disbursement.id,
                 [
                     {
@@ -112,7 +166,7 @@ export class DisbursementService {
             throw new ForbiddenException('Bạn không có quyền upload chứng từ cho giao dịch này');
         }
 
-        if (disbursement.status !== 'TRANSFERRED') {
+        if (disbursement.status !== DisbursementStatus.TRANSFERRED) {
             throw new BadRequestException('Khoản tiền này chưa được chuyển, không thể upload chứng từ');
         }
 
@@ -122,7 +176,7 @@ export class DisbursementService {
         const newProof = this.proofRepository.create({
             disbursement: { id: disbursementId },
             fileUrl: uploadResult.secure_url,
-            verificationStatus: 'PENDING_AUDIT',
+            verificationStatus: ProofStatus.PENDING_AUDIT,
         });
 
         await this.proofRepository.save(newProof);

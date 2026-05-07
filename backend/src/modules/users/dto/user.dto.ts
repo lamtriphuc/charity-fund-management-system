@@ -1,11 +1,25 @@
-import { IsDateString, IsEnum, IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
-import { KycStatus } from '../../../common/enums/kyc-status.enum'; // File enum bạn đã tạo ở bài trước
-import { KycProfileStatus } from 'src/common/enums/kyc-profile-status.enum';
+import { IsDateString, IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
 
-export class SubmitKycDto {
-    @IsOptional()
-    bankAccountInfo?: any; // VD: { bankName: "MBBank", accountNumber: "123", accountName: "Nguyen Van A" }
+export enum RoleName {
+    ADMIN = 'ADMIN',
+    DONOR = 'DONOR',
+    VOLUNTEER = 'VOLUNTEER',
+    AUDITOR = 'AUDITOR',
 }
+
+export enum UserKycStatus {
+    NONE = 'NONE',         // Chưa từng nộp
+    PENDING = 'PENDING',   // Đang chờ duyệt
+    VERIFIED = 'VERIFIED', // Đã là tình nguyện viên
+    REJECTED = 'REJECTED'  // Bị từ chối
+}
+
+export enum KycProfileStatus {
+    PENDING = 'PENDING',
+    APPROVED = 'APPROVED',
+    REJECTED = 'REJECTED'
+}
+
 
 export class ApproveKycDto {
     @IsEnum(KycProfileStatus, { message: 'Trạng thái KYC không hợp lệ' })
