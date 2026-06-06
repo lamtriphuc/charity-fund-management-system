@@ -15,6 +15,11 @@ export class JwtAccessStrategy extends PassportStrategy(Strategy, 'jwt') {
 
     // Dữ liệu trả về ở đây sẽ được nhét vào `request.user`
     async validate(payload: any) {
-        return { id: payload.sub, email: payload.email, role: payload.role };
+        return {
+            id: payload.sub,
+            email: payload.email,
+            role: payload.role,
+            permissions: payload.permissions
+        };
     }
 }

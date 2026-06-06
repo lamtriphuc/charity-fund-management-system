@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Input, Progress, Tag, Button, Empty, Spin, Pagination } from 'antd';
+import { Input, Progress, Tag, Button, Empty, Spin, Pagination, Select } from 'antd';
 import { SearchOutlined, FilterOutlined, LoadingOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { campaignService } from '../services/campaignService';
@@ -12,15 +12,42 @@ const CampaignsPage = () => {
     const [loading, setLoading] = useState(true);
     const [keyword, setKeyword] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('Tất cả');
+    const [selectedStatus, setSelectedStatus] = useState('ACTIVE');
 
     const [currentPage, setCurrentPage] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
 
+    const categoryParam = selectedCategory === 'Tất cả' ? '' : selectedCategory;
+    const statusParam = selectedStatus === 'ALL' ? '' : selectedStatus;
+
+    const handleKeywordChange = (e) => {
+        setKeyword(e.target.value);
+        setCurrentPage(1);
+    };
+
+    const handleCategoryChange = (cat) => {
+        setSelectedCategory(cat);
+        setCurrentPage(1);
+    };
+
+    const handleStatusChange = (value) => {
+        setSelectedStatus(value);
+        setCurrentPage(1);
+    };
+
     useEffect(() => {
+
         const fetchCampaigns = async () => {
             setLoading(true);
             try {
-                const res = await campaignService.search(keyword, selectedCategory, currentPage, 9);
+                const res = await campaignService.search(
+                    keyword,
+                    categoryParam,
+                    statusParam,
+                    'DESC',
+                    currentPage,
+                    9
+                );
 
                 const responseData = res?.data?.data || res?.data || [];
                 const responseMeta = res?.data?.meta || res?.meta || {};
@@ -39,13 +66,18 @@ const CampaignsPage = () => {
         }, 1000);
 
         return () => clearTimeout(timeoutId);
-    }, [keyword, selectedCategory, currentPage]);
+    }, [keyword, categoryParam, statusParam, currentPage]);
+
+
+    const handleImageError = (e) => {
+        e.target.src = 'https://placehold.co/800x400/e2e8f0/475569?text=Image+Not+Found';
+    };
 
     return (
         <div className="w-full">
 
             {/* 1. HEADER TRANG */}
-            <div className="bg-primary! rounded-2xl p-10 mb-10 text-center relative overflow-hidden shadow-md">
+            {/* <div className="bg-primary! rounded-2xl p-10 mb-10 text-center relative overflow-hidden shadow-md">
                 <div className="absolute inset-0 bg-brand! opacity-10 blur-3xl"></div>
                 <h1 className="text-4xl font-black text-white! mb-4 relative z-10">
                     Khám Phá Chiến Dịch
@@ -53,16 +85,33 @@ const CampaignsPage = () => {
                 <p className="text-gray-300 text-lg max-w-2xl mx-auto relative z-10">
                     Tìm kiếm và chung tay góp sức vào những dự án từ thiện minh bạch. Mọi khoản đóng góp của bạn đều được ghi nhận trên Blockchain.
                 </p>
-            </div>
+            </div> */}
 
             {/* 2. BỘ LỌC & TÌM KIẾM */}
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-10 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                 <Search
                     placeholder="Tìm tên chiến dịch..."
                     allowClear
-                    onSearch={(value) => setKeyword(value)}
-                    onChange={(e) => setKeyword(e.target.value)}
+                    onSearch={(value) => {
+                        setKeyword(value);
+                        setCurrentPage(1);
+                    }}
+                    onChange={(e) => {
+                        setKeyword(e.target.value);
+                        setCurrentPage(1);
+                    }}
                     className="w-full md:w-80!"
+                />
+
+                <Select
+                    value={selectedStatus}
+                    onChange={handleStatusChange}
+                    className="w-full md:w-56"
+                    options={[
+                        { value: 'ACTIVE', label: 'Đang hoạt động' },
+                        { value: 'COMPLETED', label: 'Đã đóng' },
+                        { value: 'ALL', label: 'Tất cả trạng thái' },
+                    ]}
                 />
 
                 <div className="flex gap-2 w-full md:w-auto pb-2 md:pb-0 overflow-x-auto">
@@ -71,7 +120,10 @@ const CampaignsPage = () => {
                             key={cat}
                             type={selectedCategory === cat ? "primary" : "default"}
                             className={`${selectedCategory === cat ? 'bg-primary! border-none!' : ''} rounded-full! px-6!`}
-                            onClick={() => setSelectedCategory(cat)}
+                            onClick={() => {
+                                setSelectedCategory(cat);
+                                setCurrentPage(1);
+                            }}
                         >
                             {cat}
                         </Button>
@@ -94,6 +146,10 @@ const CampaignsPage = () => {
 
                                 const daysLeft = calculateDaysLeft(camp.endDate);
 
+                                const imageUrlsArray = camp.imageUrls ? camp.imageUrls.split(',') : [];
+                                const coverImage = imageUrlsArray.length > 0 ? imageUrlsArray[0] : 'https://placehold.co/800x400/e2e8f0/475569?text=No+Image';
+
+
                                 return (
                                     <Link to={`/campaigns/${camp.id}`} key={camp.id} className="block">
                                         <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-xl transition-all group flex flex-col h-full">
@@ -101,14 +157,15 @@ const CampaignsPage = () => {
                                             {/* Ảnh Thumbnails */}
                                             <div className="relative h-56 overflow-hidden bg-gray-200">
                                                 <img
-                                                    src={camp.imageUrl || 'https://via.placeholder.com/800x400'}
+                                                    src={coverImage}
+                                                    onError={handleImageError}
                                                     alt={camp.title}
                                                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                                 />
                                                 {/* Tag thể loại */}
-                                                <Tag className="absolute top-4 left-4 bg-white/90! border-none! text-primary! font-bold px-3 py-1 rounded-md">
-                                                    {camp.category}
-                                                </Tag>
+                                                <div className="absolute top-4 left-4 z-20 bg-blue-600 text-white font-bold px-3 py-1 rounded shadow-md text-xs uppercase tracking-wide">
+                                                    {camp.category || 'CHIẾN DỊCH'}
+                                                </div>
 
                                                 {/* Overlay nếu đã hoàn thành */}
                                                 <span className={`font-medium ${daysLeft <= 5 && !isCompleted ? 'text-red-500!' : 'text-cta!'}`}>
@@ -140,11 +197,11 @@ const CampaignsPage = () => {
                                                     <div className="flex justify-between text-sm text-gray-500 mb-6">
                                                         <span>Mục tiêu: {formatMoney(camp.targetAmount)}</span>
                                                         <span className={`font-medium ${camp.daysLeft <= 5 && !isCompleted ? 'text-red-500!' : 'text-cta!'}`}>
-                                                            {isCompleted ? 'Đã đóng' : `${camp.daysLeft} ngày còn lại`}
+                                                            {isCompleted ? 'Đã đóng' : `${daysLeft} ngày còn lại`}
                                                         </span>
                                                     </div>
 
-                                                    <Link to={`/campaigns/${camp.id}/donate`}>
+                                                    {/* <Link to={`/campaigns/${camp.id}/donate`}>
                                                         <Button
                                                             type="primary"
                                                             disabled={isCompleted}
@@ -153,7 +210,7 @@ const CampaignsPage = () => {
                                                         >
                                                             {isCompleted ? 'XEM BÁO CÁO' : 'QUYÊN GÓP'}
                                                         </Button>
-                                                    </Link>
+                                                    </Link> */}
                                                 </div>
                                             </div>
                                         </div>

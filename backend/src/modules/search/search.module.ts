@@ -1,9 +1,9 @@
 import { Module } from "@nestjs/common";
 import { ElasticsearchModule } from "@nestjs/elasticsearch";
 import { SearchService } from "./search.service";
-import { AuditController } from "./audit.controller";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { Campaign } from "../campaigns/entities/campaign.entity";
+import { SearchController } from "./search.controller";
 
 @Module({
     imports: [
@@ -16,7 +16,7 @@ import { Campaign } from "../campaigns/entities/campaign.entity";
             // }
         })
     ],
-    controllers: [AuditController],
+    controllers: [SearchController],
     providers: [SearchService],
     exports: [SearchService]
 })

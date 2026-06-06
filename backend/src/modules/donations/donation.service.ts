@@ -16,6 +16,10 @@ import { PayOS } from '@payos/node';
 import { ConfigService } from '@nestjs/config';
 import { CampaignStatus } from '../campaigns/dto/campaign.dto';
 import { LedgerReferenceType } from '../ledger/dto/ledger.dto';
+import { NotificationService } from '../system/notification.service';
+import { NotificationType } from '../system/entities/notification.entity';
+import { AuditLogService } from '../audit/audit-log.service';
+import { AuditLogSeverity, AuditLogStatus } from '../audit/dto/create-audit-log.dto';
 
 @Injectable()
 export class DonationService {
@@ -29,7 +33,9 @@ export class DonationService {
         @InjectRepository(User) private readonly userRepository: Repository<User>,
         private readonly dataSource: DataSource,
         private readonly ledgerService: LedgerService,
+        private readonly notificationService: NotificationService,
         private configService: ConfigService,
+        private readonly auditLogService: AuditLogService,
     ) {
         this.payOS = new PayOS({
             clientId: this.configService.getOrThrow('PAYOS_CLIENT_ID'),
@@ -42,6 +48,7 @@ export class DonationService {
         campaignId: string,
         userId: string | null,
         dto: CreateDonationDto,
+        requestInfo: { ipAddress?: string | null; userAgent?: string | null },
     ) {
         const campaign = await this.campaignRepository.findOne({
             where: { id: campaignId },
@@ -82,7 +89,35 @@ export class DonationService {
             status: DonationStatus.PENDING,
         });
 
-        await this.donationRepository.save(donation);
+        const savedDonation = await this.donationRepository.save(donation);
+
+        await this.auditLogService.log({
+            actorId: userId ?? 'anonymous',
+            actorEmail: null,
+            actorRole: userId ? 'DONOR' : 'GUEST',
+            action: 'CREATE_DONATION_PENDING',
+            entity: 'DONATION',
+            entityId: savedDonation.id,
+            before: null,
+            after: {
+                campaignId,
+                donorId: userId,
+                amount: savedDonation.amount,
+                isAnonymous: savedDonation.isAnonymous,
+                donorName: savedDonation.isAnonymous ? null : savedDonation.donorName,
+                paymentMethod: savedDonation.paymentMethod,
+                txReference: savedDonation.txReference,
+                status: savedDonation.status,
+            },
+            metadata: {
+                campaignTitle: campaign.title,
+                paymentProvider: 'PAYOS',
+            },
+            ipAddress: requestInfo.ipAddress,
+            userAgent: requestInfo.userAgent,
+            status: AuditLogStatus.SUCCESS,
+            severity: AuditLogSeverity.INFO,
+        });
 
         const cleanTitle = campaign.title
             .normalize('NFD')
@@ -119,18 +154,75 @@ export class DonationService {
             };
         } catch (error) {
             console.error('Lỗi gọi API PayOS:', error);
-            await this.donationRepository.delete(donation.id);
+
+            await this.auditLogService.log({
+                actorId: userId ?? 'anonymous',
+                actorEmail: null,
+                actorRole: userId ? 'DONOR' : 'GUEST',
+                action: 'CREATE_DONATION_PAYMENT_LINK_FAILED',
+                entity: 'DONATION',
+                entityId: savedDonation.id,
+                metadata: {
+                    campaignId,
+                    amount: dto.amount,
+                    paymentProvider: 'PAYOS',
+                    reason: 'PAYOS_CREATE_PAYMENT_LINK_FAILED',
+                },
+                ipAddress: requestInfo.ipAddress,
+                userAgent: requestInfo.userAgent,
+                status: AuditLogStatus.FAILED,
+                severity: AuditLogSeverity.WARN,
+            });
+
+            await this.donationRepository.delete(savedDonation.id);
             throw new InternalServerErrorException(
                 'Không thể tạo mã thanh toán lúc này. Vui lòng thử lại sau.',
             );
         }
     }
 
-    async cancelPendingDonation(txReference: string) {
-        await this.donationRepository.delete({
-            txReference: txReference,
-            status: DonationStatus.PENDING,
+    async cancelPendingDonation(
+        txReference: string,
+        requestInfo: { ipAddress?: string | null; userAgent?: string | null },
+    ) {
+        const donation = await this.donationRepository.findOne({
+            where: {
+                txReference,
+                status: DonationStatus.PENDING,
+            },
+            relations: ['campaign', 'donor'],
         });
+
+        if (!donation) {
+            return { message: 'Không có giao dịch pending cần dọn dẹp' };
+        }
+
+        await this.donationRepository.delete(donation.id);
+
+        await this.auditLogService.log({
+            actorId: donation.donor?.id ?? 'anonymous',
+            actorEmail: null,
+            actorRole: donation.donor ? 'DONOR' : 'GUEST',
+            action: 'CANCEL_PENDING_DONATION',
+            entity: 'DONATION',
+            entityId: donation.id,
+            before: {
+                status: donation.status,
+                amount: donation.amount,
+                txReference: donation.txReference,
+                campaignId: donation.campaign?.id,
+            },
+            after: null,
+            metadata: {
+                reason: 'USER_CLOSED_PAYMENT_POPUP_OR_TIMEOUT',
+            },
+            ipAddress: requestInfo.ipAddress,
+            userAgent: requestInfo.userAgent,
+            status: AuditLogStatus.SUCCESS,
+            severity: AuditLogSeverity.INFO,
+        });
+
+
         return { message: 'Đã dọn dẹp giao dịch rác' };
     }
 
@@ -144,12 +236,32 @@ export class DonationService {
         return { status: donation.status };
     }
 
-    async processPaymentWebhook(dto: any) {
+    async processPaymentWebhook(
+        dto: any,
+        requestInfo: { ipAddress?: string | null; userAgent?: string | null },
+    ) {
         let webhookData;
         try {
             // Hàm này của PayOS sẽ throw error nếu chữ ký không khớp
             webhookData = this.payOS.webhooks.verify(dto);
         } catch (error) {
+            await this.auditLogService.log({
+                actorId: 'PAYOS_WEBHOOK',
+                actorEmail: null,
+                actorRole: 'EXTERNAL_SYSTEM',
+                action: 'PAYMENT_WEBHOOK_INVALID_SIGNATURE',
+                entity: 'DONATION',
+                entityId: null,
+                metadata: {
+                    reason: 'INVALID_WEBHOOK_SIGNATURE',
+                    rawOrderCode: dto?.data?.orderCode ?? null,
+                },
+                ipAddress: requestInfo.ipAddress,
+                userAgent: requestInfo.userAgent,
+                status: AuditLogStatus.FAILED,
+                severity: AuditLogSeverity.CRITICAL,
+            });
+
             throw new BadRequestException(
                 'Chữ ký Webhook không hợp lệ! Phát hiện nghi vấn tấn công.',
             );
@@ -163,15 +275,40 @@ export class DonationService {
         await queryRunner.startTransaction();
 
         try {
-            // 1. Tìm giao dịch
-            const donation = await queryRunner.manager.findOne(Donation, {
-                where: { txReference: txReference },
-                relations: ['campaign'],
-            });
+            const donation = await queryRunner.manager.createQueryBuilder(Donation, 'donation')
+                .innerJoinAndSelect('donation.campaign', 'campaign')
+                .where('donation.txReference = :txReference', { txReference })
+                .setLock('pessimistic_write')
+                .getOne();
 
             if (!donation) throw new NotFoundException('Không tìm thấy giao dịch');
-            if (donation.status === DonationStatus.SUCCESS)
+
+            const before = {
+                status: donation.status,
+            };
+
+            if (donation.status === DonationStatus.SUCCESS) {
+                await queryRunner.rollbackTransaction();
+
+                await this.auditLogService.log({
+                    actorId: 'PAYOS',
+                    actorEmail: null,
+                    actorRole: 'PAYMENT_PROVIDER',
+                    action: 'PAYMENT_WEBHOOK_DUPLICATED',
+                    entity: 'DONATION',
+                    entityId: donation.id,
+                    metadata: {
+                        txReference,
+                        paymentProvider: 'PAYOS',
+                    },
+                    ipAddress: requestInfo.ipAddress,
+                    userAgent: requestInfo.userAgent,
+                    status: AuditLogStatus.SUCCESS,
+                    severity: AuditLogSeverity.INFO,
+                });
+
                 return { message: 'Giao dịch này đã được xử lý rồi' };
+            }
 
             if (isSuccess) {
                 donation.status = DonationStatus.SUCCESS;
@@ -183,11 +320,11 @@ export class DonationService {
                 // Có (Credit) TK Quỹ Chiến dịch: Tăng nguồn vốn (trách nhiệm phải chi)
 
                 const cashAccount = await queryRunner.manager.findOne(Account, {
-                    where: { code: 'SYS_CASH' },
+                    where: { code: 'SYS_BANK_MAIN' },
                 });
                 if (!cashAccount) {
                     throw new InternalServerErrorException(
-                        'Lỗi nghiêm trọng: Không tìm thấy tài khoản ngân hàng tổng (SYS_CASH)',
+                        'Lỗi nghiêm trọng: Không tìm thấy tài khoản ngân hàng tổng (SYS_BANK_MAIN)',
                     );
                 }
 
@@ -195,15 +332,16 @@ export class DonationService {
                     queryRunner.manager,
                     LedgerReferenceType.DONATION,
                     donation.id,
+                    `Nhận quyên góp từ mã GD PayOS: ${donation.txReference}`,
                     [
                         {
-                            accountId: cashAccount.id,
-                            isDebit: true, // Nợ
+                            accountCode: 'SYS_BANK_MAIN',
+                            isDebit: true, // Nợ (Tăng tài sản)
                             amount: Number(donation.amount),
                         },
                         {
-                            accountId: donation.campaign.fundAccountId,
-                            isDebit: false, // Có
+                            accountCode: `CAMP_${donation.campaign.id}_FUND`,
+                            isDebit: false,
                             amount: Number(donation.amount),
                         },
                     ],
@@ -211,15 +349,63 @@ export class DonationService {
 
                 // Cộng tiền vào tổng của chiến dịch
                 const campaign = donation.campaign;
-                campaign.currentAmount =
-                    Number(campaign.currentAmount) + Number(donation.amount);
+                campaign.currentAmount = Number(campaign.currentAmount) + Number(donation.amount);
                 await queryRunner.manager.save(campaign);
+
+                // [THÊM LOGIC THÔNG BÁO]
+                const fullCampaign = await queryRunner.manager.findOne(Campaign, {
+                    where: { id: campaign.id },
+                    relations: ['createdBy']
+                });
+
+                if (fullCampaign && fullCampaign.createdBy) {
+                    await this.notificationService.sendNotification(
+                        fullCampaign.createdBy.id,
+                        fullCampaign.createdBy.email,
+                        'Có người vừa quyên góp!',
+                        `${donation.donorName || 'Một nhà hảo tâm'} vừa ủng hộ ${Number(donation.amount).toLocaleString('vi-VN')}đ vào chiến dịch "${fullCampaign.title}".`,
+                        NotificationType.INFO,
+                        `/campaigns/${fullCampaign.id}/manage`
+                    );
+                }
             } else {
                 donation.status = DonationStatus.FAILED;
                 await queryRunner.manager.save(donation);
             }
 
+
             await queryRunner.commitTransaction();
+
+            try {
+                await this.auditLogService.log({
+                    actorId: 'PAYOS',
+                    actorEmail: null,
+                    actorRole: 'PAYMENT_PROVIDER',
+                    action: isSuccess ? 'PAYMENT_SUCCESS' : 'PAYMENT_FAILED',
+                    entity: 'DONATION',
+                    entityId: donation.id,
+                    before,
+                    after: {
+                        status: donation.status,
+                    },
+                    metadata: {
+                        campaignId: donation.campaign.id,
+                        amount: donation.amount,
+                        txReference: donation.txReference,
+                        paymentProvider: 'PAYOS',
+                        creditedAccount: isSuccess ? `CAMP_${donation.campaign.id}_FUND` : null,
+                        debitedAccount: isSuccess ? 'SYS_BANK_MAIN' : null,
+                        referenceType: isSuccess ? LedgerReferenceType.DONATION : null,
+                    },
+                    ipAddress: requestInfo.ipAddress,
+                    userAgent: requestInfo.userAgent,
+                    status: isSuccess ? AuditLogStatus.SUCCESS : AuditLogStatus.FAILED,
+                    severity: AuditLogSeverity.WARN,
+                });
+            } catch (auditError) {
+                console.error(`Không thể ghi audit log webhook donation ${donation.id}:`, auditError);
+            }
+
             return { message: 'Xử lý Webhook thành công' };
         } catch (error) {
             await queryRunner.rollbackTransaction();
@@ -265,7 +451,7 @@ export class DonationService {
         if (keyword) {
             // Tìm kiếm theo Mã giao dịch, Tên người chuyển hoặc Lời nhắn
             query.andWhere(
-                '(donation.txReference LIKE :keyword OR donation.donorName LIKE :keyword OR donation.message LIKE :keyword)',
+                '(donation.txReference ILIKE :keyword OR donation.donorName ILIKE :keyword OR donor.fullName ILIKE :keyword OR donation.message ILIKE :keyword)',
                 { keyword: `%${keyword}%` },
             );
         }
@@ -302,5 +488,23 @@ export class DonationService {
             currentPage: Number(page),
             totalPages: Math.ceil(total / limit),
         };
+    }
+
+    async getMyDonations(userId: string) {
+        const donations = await this.donationRepository.find({
+            where: { donor: { id: userId } },
+            relations: ['campaign'],
+            order: { createdAt: 'DESC' }
+        });
+
+        const mappedData = donations.map(d => ({
+            id: d.id,
+            amount: d.amount,
+            createdAt: d.createdAt,
+            message: d.message,
+            campaignTitle: d.campaign?.title || 'Chiến dịch đã xóa'
+        }));
+
+        return { data: mappedData };
     }
 }

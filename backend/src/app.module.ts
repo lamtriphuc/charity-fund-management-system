@@ -3,7 +3,7 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { UsersModule } from './modules/users/users.module';
+import { UsersModule } from './modules/users/user.module';
 import { CampaignsModule } from './modules/campaigns/campaigns.module';
 import { DonationModule } from './modules/donations/donation.module';
 import { LedgerModule } from './modules/ledger/ledger.module';
@@ -13,8 +13,10 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CloudinaryModule } from './common/cloudinary/cloudinary.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { CronModule } from './modules/cron/cron.module';
-import { SearchModule } from './modules/search/search.module';
 import { SeederModule } from './seeder/seeder.module';
+import { AnalyticModule } from './modules/analytic/analytic.module';
+import { SearchModule } from './modules/search/search.module';
+import { AuditLogModule } from './modules/audit/audit-log.module';
 
 @Module({
   imports: [
@@ -48,10 +50,18 @@ import { SeederModule } from './seeder/seeder.module';
     CloudinaryModule,
     CronModule,
     SearchModule,
+    AnalyticModule,
+    AuditLogModule,
 
     ScheduleModule.forRoot()
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // {
+    //   provide: APP_INTERCEPTOR,
+    //   useClass: AuditLogInterceptor,
+    // },
+  ],
 })
 export class AppModule { }

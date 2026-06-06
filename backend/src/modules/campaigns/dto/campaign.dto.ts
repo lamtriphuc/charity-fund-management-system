@@ -11,7 +11,7 @@ export enum CampaignStatus {
     REJECTED = 'REJECTED',
     ACTIVE = 'ACTIVE',
     COMPLETED = 'COMPLETED',
-    CLOSED = 'CLOSED', // = chưa hoàn thành => refund tiền
+    CLOSED = 'CLOSED',
     SUSPENDED = 'SUSPENDED',
 }
 
@@ -24,16 +24,16 @@ export class CreateCampaignDto {
     @IsOptional()
     description?: string;
 
+    @IsString()
+    category: string;
+
+    @Type(() => Number)
     @IsNumber()
     @Min(1000000, { message: 'Mục tiêu phải lớn hơn 1,000,000 VNĐ' })
     targetAmount: number;
 
     @IsEnum(CampaignType, { message: 'Loại chiến dịch không hợp lệ' })
     campaignType: CampaignType;
-
-    @IsOptional()
-    @IsString()
-    imageUrl?: string;
 
     @Type(() => Date)
     @IsDate({ message: 'Ngày bắt đầu không hợp lệ' })
@@ -53,21 +53,21 @@ export class UpdateCampaignStatusDto {
 export class GetCampaignsQueryDto {
     @IsOptional()
     @Type(() => Number)
-    @IsNumber()
-    @Min(1)
-    page?: number = 1;
+    page?: number;
 
     @IsOptional()
     @Type(() => Number)
-    @IsNumber()
-    @Min(1)
-    limit?: number = 10;
+    limit?: number;
 
     @IsOptional()
-    @IsEnum(CampaignStatus)
-    status?: CampaignStatus;
+    @IsString()
+    status?: string;
 
     @IsOptional()
     @IsIn(['ASC', 'DESC'])
-    sort?: 'ASC' | 'DESC' = 'DESC';
+    sort?: 'ASC' | 'DESC';
+
+    @IsOptional()
+    @IsString()
+    keyword?: string;
 }

@@ -19,14 +19,21 @@ const Login = () => {
         try {
             const response = await authService.login({
                 email: values.email,
-                password: values.password,
+                password: values.password || '123456',
             });
 
             restoreAuth(response.user, response.accessToken);
             message.success('Đăng nhập thành công!');
 
-            if (response.user?.role === 'ADMIN') {
+            const role =
+                typeof response.user.role === 'object'
+                    ? response.user.role?.name
+                    : response.user.role;
+
+            if (role === 'ADMIN' || role === 'SUPER_ADMIN') {
                 navigate('/admin/dashboard');
+            } else if (role === 'AUDITOR') {
+                navigate('/auditor/audit-logs');
             } else {
                 navigate('/');
             }
@@ -43,7 +50,6 @@ const Login = () => {
         try {
             // Gửi id_token xuống Backend
             const response = await authService.loginWithGoogle(idToken);
-            console.log(response)
 
             restoreAuth(response.user, response.accessToken);
             message.success('Đăng nhập bằng Google thành công!');
@@ -63,6 +69,9 @@ const Login = () => {
             <Form
                 name="login_form"
                 layout="vertical"
+                initialValues={{
+                    password: '123456'
+                }}
                 onFinish={onFinish}
                 size="large"
             >
@@ -93,14 +102,14 @@ const Login = () => {
                 </Form.Item>
 
                 {/* Nút Quên mật khẩu căn phải */}
-                <div className="flex justify-end mb-8">
+                {/* <div className="flex justify-end mb-8">
                     <Link
                         to="/forgot-password"
                         className="text-brand hover:text-blue-800 text-sm font-medium transition-colors"
                     >
                         Quên mật khẩu?
                     </Link>
-                </div>
+                </div> */}
 
                 <Form.Item className="mb-0">
                     <Button

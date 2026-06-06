@@ -1,6 +1,7 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
-import { CampaignStatus } from "../dto/campaign.dto";
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, type Relation, UpdateDateColumn } from "typeorm";
+import { CampaignStatus, CampaignType } from "../dto/campaign.dto";
 import { User } from "src/modules/users/entities/user.entity";
+import { Disbursement } from "src/modules/disbursements/entities/disbursement.entity";
 
 @Entity('campaigns')
 export class Campaign {
@@ -16,8 +17,8 @@ export class Campaign {
     @Column({ name: 'target_amount', type: 'bigint' })
     targetAmount: number;
 
-    @Column({ type: 'varchar' })
-    campaignType: string; // FLEXIBLE, FIXED
+    @Column({ type: 'enum', enum: CampaignType, nullable: false })
+    campaignType: CampaignType; // FLEXIBLE, FIXED
 
     @Column({ type: 'enum', enum: CampaignStatus, default: CampaignStatus.PENDING })
     status: CampaignStatus;
@@ -25,14 +26,11 @@ export class Campaign {
     @Column({ name: 'current_amount', type: 'bigint', default: 0 })
     currentAmount: number;
 
-    @Column({ name: 'fund_account_id', type: 'uuid', nullable: true })
-    fundAccountId: string;
-
     @Column({ type: 'varchar', nullable: true })
     category: string;
 
-    @Column({ name: 'image_url', type: 'text', nullable: true })
-    imageUrl: string;
+    @Column({ name: 'image_urls', type: 'text', nullable: true })
+    imageUrls: string;
 
     @Column({ name: 'start_date', type: 'timestamp' })
     startDate: Date;
@@ -40,16 +38,20 @@ export class Campaign {
     @Column({ name: 'end_date', type: 'timestamp' })
     endDate: Date;
 
-    @ManyToOne(() => User)
-    @JoinColumn({ name: 'created_by' }) // Volunteer khởi xướng
-    createdBy: User;
-
-    @ManyToOne(() => User)
-    @JoinColumn({ name: 'approved_by' }) // Admin duyệt
-    approvedBy: User;
-
     @Column({ name: 'rejection_reason', type: 'text', nullable: true })
     rejectionReason: string;
+
+    @ManyToOne(() => User, user => user.campaigns)
+    @JoinColumn({ name: 'created_by' })
+    createdBy: Relation<User>;
+
+    @ManyToOne(() => User, user => user.approvedCampaigns, { nullable: true })
+    @JoinColumn({ name: 'approved_by' })
+    approvedBy: Relation<User> | null;
+
+    // 1 Chiến dịch có nhiều đợt giải ngân
+    @OneToMany(() => Disbursement, disbursement => disbursement.campaign)
+    disbursements: Relation<Disbursement>[];
 
     @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
     createdAt: Date;

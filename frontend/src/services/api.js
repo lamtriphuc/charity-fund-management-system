@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+const url = `${import.meta.env.VITE_API_URL}:${import.meta.env.VITE_PORT}`
+
 const api = axios.create({
-    baseURL: 'http://localhost:3000',
+    baseURL: url,
     timeout: 20000,
     // BẮT BUỘC CÓ: Để Axios tự động gửi cookie refresh_token lên Backend
     withCredentials: true,
@@ -10,6 +12,7 @@ const api = axios.create({
 // Các biến dùng để xử lý hàng đợi khi refresh token
 let isRefreshing = false;
 let failedQueue = [];
+let isRedirecting = false;
 
 // Hàm xử lý hàng đợi: Khi lấy được token mới, chạy lại các API đang chờ
 const processQueue = (error, token = null) => {
@@ -43,73 +46,93 @@ api.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
-        // Nếu lỗi 401, chưa từng retry và không phải là gọi API login/refresh
-        if (error.response?.status === 401 && !originalRequest._retry && originalRequest.url !== '/auth/login' && originalRequest.url !== '/auth/refresh') {
-
-            // Nếu ĐANG có 1 request khác gọi refresh rồi, ta cho request này vào hàng đợi
-            if (isRefreshing) {
-                return new Promise(function (resolve, reject) {
-                    failedQueue.push({ resolve, reject });
-                })
-                    .then((token) => {
-                        originalRequest.headers['Authorization'] = 'Bearer ' + token;
-                        return api(originalRequest); // Gọi lại API ban đầu
-                    })
-                    .catch((err) => Promise.reject(err));
-            }
-
-            // Bắt đầu quá trình refresh
-            originalRequest._retry = true;
-            isRefreshing = true;
-
-            try {
-                // Gọi API cấp lại token (Cookie tự động được gửi ngầm do withCredentials: true)
-                const res = await api.post('/auth/refresh');
-
-                // Backend của bạn trả về { access_token: ... }
-                const newToken = res.access_token;
-
-                // Lưu token mới
-                localStorage.setItem('access_token', newToken);
-                api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-                originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
-
-                // Giải phóng hàng đợi, cho các API khác chạy tiếp
-                processQueue(null, newToken);
-
-                // Gọi lại API vừa bị fail
-                return api(originalRequest);
-
-            } catch (refreshError) {
-                // THẤT BẠI: Hết hạn cả Refresh Token
-                processQueue(refreshError, null);
-                localStorage.removeItem('access_token');
-
-                // --- XỬ LÝ CHUYỂN HƯỚNG THÔNG MINH ---
-                // Khai báo các trang KHÔNG CẦN đăng nhập (Public pages)
-                const publicPaths = ['/', '/login', '/register', '/campaigns'];
-                const currentPath = window.location.pathname;
-
-                // Kiểm tra xem trang hiện tại có bắt đầu bằng các path public không
-                const isPublicPage = publicPaths.some(path => currentPath === path || currentPath.startsWith('/campaigns'));
-
-                if (!isPublicPage) {
-                    // Nếu đang ở trang yêu cầu đăng nhập (Profile, Dashboard...) -> Đá ra Login
-                    alert('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục!');
-                    window.location.href = '/login';
-                } else {
-                    // Nếu đang ở trang chủ/khám phá -> Chỉ báo lỗi nhẹ, không đá ra login
-                    console.warn('Đã tự động đăng xuất do hết hạn phiên làm việc.');
-                    // Tùy chọn: Bạn có thể gọi 1 hàm trigger event để React set state user = null ở đây
-                }
-
-                return Promise.reject(refreshError);
-            } finally {
-                isRefreshing = false;
-            }
+        if (!error.response) {
+            return Promise.reject(error);
         }
 
-        return Promise.reject(error);
+        const is401 = error.response.status === 401;
+
+        const isAuthRoute =
+            originalRequest.url?.includes('/auth/login') ||
+            originalRequest.url?.includes('/auth/refresh');
+
+        if (!is401 || isAuthRoute) {
+            return Promise.reject(error);
+        }
+
+        // Tránh loop
+        if (originalRequest._retry) {
+            return Promise.reject(error);
+        }
+
+        // Đang refresh -> queue
+        if (isRefreshing) {
+            return new Promise((resolve, reject) => {
+                failedQueue.push({ resolve, reject });
+            })
+                .then((token) => {
+                    originalRequest.headers.Authorization = `Bearer ${token}`;
+                    originalRequest._retry = true;
+                    return api(originalRequest);
+                })
+                .catch((err) => Promise.reject(err));
+        }
+
+        // START REFRESH
+        originalRequest._retry = true;
+        isRefreshing = true;
+
+        try {
+            const res = await api.post('/auth/refresh');
+
+            const newToken = res.accessToken;
+
+            localStorage.setItem('access_token', newToken);
+
+            api.defaults.headers.common.Authorization = `Bearer ${newToken}`;
+
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+
+            processQueue(null, newToken);
+            isRefreshing = false;
+
+            return api(originalRequest);
+
+        } catch (refreshError) {
+            processQueue(refreshError, null);
+            isRefreshing = false;
+
+            localStorage.removeItem('access_token');
+
+            // clear zustand persist
+            localStorage.removeItem('auth-storage');
+
+            const publicPaths = [
+                '/',
+                '/login',
+                '/register',
+            ];
+
+            const currentPath = window.location.pathname;
+
+            const isPublicPage =
+                publicPaths.includes(currentPath) ||
+                currentPath.startsWith('/campaigns');
+
+            // Chỉ redirect nếu đang ở private page
+            if (!isPublicPage && !isRedirecting) {
+                isRedirecting = true;
+
+                // Trigger event cho React xử lý
+                window.dispatchEvent(new Event('auth-expired'));
+
+                window.location.replace('/login');
+                setTimeout(() => { isRedirecting = false; }, 3000);
+            }
+
+            return Promise.reject(refreshError);
+
+        }
     }
 );
 

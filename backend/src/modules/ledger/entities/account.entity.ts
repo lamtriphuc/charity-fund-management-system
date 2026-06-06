@@ -1,23 +1,29 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, type Relation } from 'typeorm';
 import { AccountType } from '../dto/ledger.dto';
+import { LedgerLine } from './ledger-line.entity';
+
+export const ColumnNumericTransformer = {
+    to: (data: number): number => data,
+    from: (data: string): number => parseFloat(data),
+};
 
 @Entity('accounts')
 export class Account {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
-    // 'SYS_CASH', 'CAMP_123', ...
     @Column({ type: 'varchar', unique: true })
-    code: string; // VD: 'CASH_BANK_VCB', 'CAMP_123_REVENUE', 'CAMP_123_EXPENSE'
+    code: string;
 
     @Column({ name: 'account_type', type: 'enum', enum: AccountType })
-    accountType: AccountType; // ASSET, LIABILITY
+    accountType: AccountType;
 
     @Column({ type: 'varchar' })
     name: string;
 
-    // QUAN TRỌNG: Balance có thể tính toán on-the-fly từ LedgerLine, 
-    // nhưng lưu snapshot ở đây để query cho nhanh. Bắt buộc cập nhật qua DB Trigger hoặc DB Transaction.
-    @Column({ type: 'bigint', default: 0 })
+    @Column({ type: 'bigint', default: 0, transformer: ColumnNumericTransformer })
     balance: number;
+
+    @OneToMany(() => LedgerLine, line => line.account)
+    ledgerLines: Relation<LedgerLine>[];
 }

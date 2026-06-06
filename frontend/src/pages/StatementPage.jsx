@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import {  Input, Typography, Tag, Card, Statistic, Row, Col, Button, Table  } from 'antd';
+import { Input, Typography, Tag, Card, Statistic, Row, Col, Button, Table } from 'antd';
 import { SearchOutlined, SafetyOutlined, SwapOutlined, UsergroupAddOutlined } from '@ant-design/icons';
 import { campaignService } from '../services/campaignService';
 import { formatMoney } from '../utils/helper';
-import moment from 'moment'; 
+import moment from 'moment';
 import ColumnGroup from 'antd/es/table/ColumnGroup';
 
 const { Title, Text } = Typography;
@@ -14,7 +14,7 @@ const StatementPage = () => {
     const [loading, setLoading] = useState(false);
     const [total, setTotal] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
-    
+
     const [keyword, setKeyword] = useState('');
     const [currentSortBy, setCurrentSortBy] = useState('createdAt');
     const [currentSortOrder, setCurrentSortOrder] = useState('DESC');
@@ -29,7 +29,7 @@ const StatementPage = () => {
                 sortBy: sortBy,
                 sortOrder: sortOrder
             });
-            const responseData = res; 
+            const responseData = res;
             setData(responseData.data);
             setTotal(responseData.total);
             setCurrentPage(page);
@@ -51,7 +51,7 @@ const StatementPage = () => {
         let newSortOrder = 'DESC';
 
         if (sorter && sorter.order) {
-            newSortBy = sorter.field; 
+            newSortBy = sorter.field;
             newSortOrder = sorter.order === 'ascend' ? 'ASC' : 'DESC'; // Antd dùng chữ ascend/descend, mình quy đổi ra ASC/DESC cho BE
         }
 
@@ -127,16 +127,13 @@ const StatementPage = () => {
     ];
 
     return (
-        <div className="max-w-7xl mx-auto py-10 px-4">
+        <div className="max-w-7xl mx-auto px-4">
             {/* HEADER */}
             <div className="text-center mb-10">
                 <div className="flex items-center justify-center gap-2 mb-3">
-                    <SafetyOutlined className="text-3xl text-green-500" />
                     <Title level={2} className="m-0 text-primary!">Sao kê điện tử tự động</Title>
                 </div>
-                <Text className="text-gray-500 text-lg">
-                    Dữ liệu được cập nhật tự động từ Sổ cái (Ledger) ngay khi giao dịch ngân hàng thành công.
-                </Text>
+
             </div>
 
             {/* THANH TÌM KIẾM */}
@@ -153,11 +150,11 @@ const StatementPage = () => {
                         />
                     </div>
                     <div className="flex gap-4">
-                        <Statistic 
-                            title="Tổng số giao dịch" 
-                            value={total} 
-                            prefix={<SwapOutlined className="text-brand!" />} 
-                            valueStyle={{ fontWeight: 900, color: '#1E3A8A' }} 
+                        <Statistic
+                            title="Tổng số giao dịch"
+                            value={total}
+                            prefix={<SwapOutlined className="text-brand!" />}
+                            valueStyle={{ fontWeight: 900, color: '#1E3A8A' }}
                         />
                     </div>
                 </div>

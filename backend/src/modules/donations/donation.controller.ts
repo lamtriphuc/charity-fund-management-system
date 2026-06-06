@@ -1,7 +1,9 @@
-import { Body, Controller, Get, Param, Post, Query, Req } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { DonationService } from "./donation.service";
 import { CreateDonationDto, WebhookPaymentDto } from "./dto/donation.dto";
 import type { Request } from 'express';
+import { CurrentUser } from "src/common/decorators/current-user.decorator";
+import { AuthGuard } from "@nestjs/passport";
 
 @Controller()
 export class DonationController {
@@ -19,7 +21,10 @@ export class DonationController {
             userId = (req.user as any).id;
         }
 
-        return this.donationService.createDonation(campaignId, userId, dto);
+        return this.donationService.createDonation(campaignId, userId, dto, {
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent'] || null,
+        });
     }
 
     // API cho Frontend gọi hỏi thăm (Polling) trạng thái thanh toán
@@ -30,8 +35,14 @@ export class DonationController {
 
     // API dọn rác Database khi user tắt Popup
     @Post('/donations/cancel/:txReference')
-    cancelDonation(@Param('txReference') txReference: string) {
-        return this.donationService.cancelPendingDonation(txReference);
+    cancelDonation(
+        @Param('txReference') txReference: string,
+        @Req() req: Request,
+    ) {
+        return this.donationService.cancelPendingDonation(txReference, {
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent'] || null,
+        });
     }
 
     // Xem sao kê của chiến dịch
@@ -41,10 +52,14 @@ export class DonationController {
     }
 
     @Post('donations/webhook')
-    handleWebhook(@Body() dto: any) {
-        console.log('🎉 ĐÃ NHẬN ĐƯỢC WEBHOOK TỪ PAYOS:');
-        console.log(JSON.stringify(dto, null, 2));
-        return this.donationService.processPaymentWebhook(dto);
+    handleWebhook(
+        @Body() dto: any,
+        @Req() req: Request,
+    ) {
+        return this.donationService.processPaymentWebhook(dto, {
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent'] || 'PAYOS_WEBHOOK',
+        });
     }
 
 
@@ -58,5 +73,13 @@ export class DonationController {
         @Query('sortOrder') sortOrder: 'DESC' | 'ASC' = 'DESC'
     ) {
         return this.donationService.getStatements(page, limit, keyword, sortBy, sortOrder);
+    }
+
+    @Get('/donations/me')
+    @UseGuards(AuthGuard('jwt'))
+    getMyDonations(
+        @CurrentUser() user: any
+    ) {
+        return this.donationService.getMyDonations(user.id);
     }
 }

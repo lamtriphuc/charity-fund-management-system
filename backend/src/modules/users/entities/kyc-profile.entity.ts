@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, Relation } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, type Relation } from 'typeorm';
 
 import { User } from './user.entity';
 import { KycProfileStatus } from '../dto/user.dto';
@@ -9,9 +9,9 @@ export class KycProfile {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
-    @ManyToOne(() => User, { onDelete: 'CASCADE' })
+    @ManyToOne(() => User, user => user.kycProfiles, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'user_id' })
-    user: User;
+    user: Relation<User>;
 
     @Column({ name: 'front_image_url', type: 'varchar', nullable: true })
     frontImageUrl: string | null;
@@ -37,9 +37,6 @@ export class KycProfile {
 
     @Column({ name: 'extracted_address', type: 'varchar', nullable: true })
     extractedAddress: string | null;
-
-    @Column({ name: 'bank_account_info', type: 'jsonb', nullable: true })
-    bankAccountInfo: Record<string, any> | null;
 
     @Column({ type: 'enum', enum: KycProfileStatus, default: KycProfileStatus.PENDING })
     status: KycProfileStatus;

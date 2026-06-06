@@ -7,6 +7,7 @@ import logo from '../assets/charity-logo.png';
 import napasLogo from '../assets/Logo-Napas.png';
 import vietQRLogo from '../assets/VietQR_Logo.svg.png';
 import mbBankLogo from '../assets/mb-bank-logo.png';
+import { LoadingOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
 
@@ -125,9 +126,12 @@ const DonatePage = () => {
         };
     }, [isModalVisible, paymentInfo.txReference, navigate, campaignId, paymentInfo.amount]);
 
-    if (loadingCampaign || !campaign) return <div className="text-center py-20"><Spin size="large" /></div>;
+    if (loadingCampaign || !campaign) return <div className="text-center py-20"><Spin indicator={<LoadingOutlined style={{ fontSize: 48 }} spin />} /></div>;
 
     const currentNumericAmount = Number(String(watchedAmount || '').replace(/\D/g, ''));
+
+    const imageUrlsArray = campaign?.imageUrls ? campaign.imageUrls.split(',') : [];
+    const coverImage = imageUrlsArray.length > 0 ? imageUrlsArray[0] : 'https://placehold.co/800x400?text=No+Cover';
 
     return (
         <div className="max-w-300 mx-auto py-10 px-4 overflow-hidden">
@@ -135,7 +139,7 @@ const DonatePage = () => {
                 {/* ... (CỘT TRÁI GIỮ NGUYÊN) ... */}
                 <div className="lg:w-1/2">
                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 sticky top-28">
-                        <img src={campaign.imageUrl || 'https://via.placeholder.com/800x400'} alt={campaign.title} className="w-full h-64 object-cover rounded-2xl mb-6" />
+                        <img src={coverImage} alt={campaign.title} className="w-full h-64 object-cover rounded-2xl mb-6" />
                         <Tag className="bg-brand! border-none! text-white! px-3 py-1 rounded-md mb-4 font-bold">{campaign.category}</Tag>
                         <h2 className="text-2xl font-black text-primary! mb-4 leading-tight">{campaign.title}</h2>
 
@@ -287,7 +291,7 @@ const DonatePage = () => {
                         </div>
                     </div>
                 ) : (
-                    <div className="py-20 text-center"><Spin size="large" tip="Đang kết nối cổng thanh toán..." /></div>
+                    <div className="py-20 text-center"><Spin indicator={<LoadingOutlined style={{ fontSize: 48 }} spin />} tip="Đang kết nối cổng thanh toán..." /></div>
                 )}
             </Modal>
 

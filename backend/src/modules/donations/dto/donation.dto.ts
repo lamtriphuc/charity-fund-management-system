@@ -10,7 +10,6 @@ export enum DonationStatus {
     PENDING = 'PENDING',
     SUCCESS = 'SUCCESS',
     FAILED = 'FAILED',
-    REFUNDED = 'REFUNDED'
 }
 
 export class CreateDonationDto {

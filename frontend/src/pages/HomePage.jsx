@@ -3,23 +3,57 @@ import { Button, Progress, Tag } from 'antd';
 import { Link } from 'react-router-dom';
 import { HeartFilled, RightOutlined } from '@ant-design/icons';
 import { campaignService } from '../services/campaignService';
+// IMPORT THÊM SERVICE LẤY THỐNG KÊ (Đổi lại đường dẫn cho đúng với project của bạn)
+import { analyticService } from '../services/analyticService';
 import { formatMoney } from '../utils/helper';
 
+// Hàm hỗ trợ rút gọn số tiền lớn (Ví dụ: 15.200.000.000 -> 15.2 Tỷ)
+const formatCompactNumber = (number) => {
+    if (!number) return '0';
+    if (number >= 1000000000) return (number / 1000000000).toFixed(1) + ' Tỷ';
+    if (number >= 1000000) return (number / 1000000).toFixed(1) + ' Triệu';
+    return new Intl.NumberFormat('vi-VN').format(number);
+};
 
 const HomePage = () => {
     const [urgentCampaigns, setUrgentCampaigns] = useState([]);
+    // Thêm State để lưu dữ liệu thống kê
+    const [stats, setStats] = useState({
+        totalFund: 0,
+        activeCampaignsCount: 0,
+        totalDonationsCount: 0
+    });
 
     useEffect(() => {
-        const fetchUrgent = async () => {
+        const fetchHomeData = async () => {
             try {
-                const res = await campaignService.getUrgent();
-                setUrgentCampaigns(res.data || res);
+                // Chạy song song 2 API để tăng tốc độ load trang
+                const [urgentRes, statsRes] = await Promise.all([
+                    campaignService.getUrgent(),
+                    analyticService.getDashboardStats()
+                ]);
+
+                // Set data chiến dịch
+                setUrgentCampaigns(urgentRes.data || urgentRes);
+
+                // Set data thống kê (Tùy thuộc backend trả về bọc trong data.stats hay trực tiếp)
+                const statsData = statsRes.data?.stats || statsRes.stats || {};
+                setStats({
+                    totalFund: statsData.totalFund || 0,
+                    activeCampaignsCount: statsData.activeCampaignsCount || 0,
+                    totalDonationsCount: statsData.totalDonationsCount || 0
+                });
+
             } catch (error) {
-                console.error("Lỗi tải chiến dịch cấp bách", error);
+                console.error("Lỗi tải dữ liệu trang chủ", error);
             }
         };
-        fetchUrgent();
+        fetchHomeData();
     }, []);
+
+    const handleImageError = (e) => {
+        e.target.src = 'https://placehold.co/800x400/e2e8f0/475569?text=Image+Not+Found';
+    };
 
     return (
         <div className="w-full">
@@ -53,14 +87,13 @@ const HomePage = () => {
                 </div>
             </section>
 
-            {/* 2. SỐ LIỆU MINH BẠCH - Củng cố niềm tin */}
+            {/* 2. SỐ LIỆU MINH BẠCH - Đã được đấu nối API */}
             <section className="max-w-300 mx-auto mb-20">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
                     {[
-                        { label: 'Tổng quyên góp', value: '15.2 Tỷ' },
-                        { label: 'Chiến dịch thành công', value: '142' },
-                        { label: 'Nhà hảo tâm', value: '8,430' },
-                        { label: 'Người được giúp đỡ', value: '50,000+' }
+                        { label: 'Tổng quyên góp', value: formatCompactNumber(stats.totalFund) },
+                        { label: 'Chiến dịch hoạt động', value: new Intl.NumberFormat('vi-VN').format(stats.activeCampaignsCount) },
+                        { label: 'Lượt quyên góp', value: new Intl.NumberFormat('vi-VN').format(stats.totalDonationsCount) },
                     ].map((stat, index) => (
                         <div key={index} className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center hover:shadow-md transition-shadow">
                             <h3 className="text-4xl font-black text-brand! mb-2">{stat.value}</h3>
@@ -82,7 +115,6 @@ const HomePage = () => {
                     </Link>
                 </div>
 
-                {/* Grid 3 cột cho thẻ chiến dịch */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {urgentCampaigns.map((camp) => {
                         const current = Number(camp.currentAmount) || 0;
@@ -98,32 +130,30 @@ const HomePage = () => {
                             daysLeft = diffDays > 0 ? diffDays : 0;
                         }
 
+                        const imageUrlsArray = camp.imageUrls ? camp.imageUrls.split(',') : [];
+                        const coverImage = imageUrlsArray.length > 0 ? imageUrlsArray[0] : 'https://placehold.co/800x400/e2e8f0/475569?text=No+Image';
+
                         return (
                             <div key={camp.id} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-xl transition-all group flex flex-col">
-                                {/* Ảnh Thumbnails */}
-                                <Link
-                                    to={`/campaigns/${camp.id}`}
-                                    className='cursor-pointer'
-                                >
+                                <Link to={`/campaigns/${camp.id}`} className='cursor-pointer'>
                                     <div className="relative h-56 overflow-hidden">
                                         <img
-                                            src={camp.imageUrl || 'https://via.placeholder.com/800x400'}
+                                            src={coverImage}
                                             alt={camp.title}
+                                            onError={handleImageError}
                                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                         />
-                                        <Tag className="absolute top-4 left-4 bg-white/90! border-none! text-primary! font-bold px-3 py-1 rounded-md">
-                                            {camp.category}
-                                        </Tag>
+                                        <div className="absolute top-4 left-4 z-20 bg-blue-600 text-white font-bold px-3 py-1 rounded shadow-md text-xs uppercase tracking-wide">
+                                            {camp.category || 'CHIẾN DỊCH'}
+                                        </div>
                                     </div>
 
-                                    {/* Nội dung thẻ */}
                                     <div className="p-6 flex flex-col flex-1">
                                         <h3 className="text-xl font-bold text-primary! line-clamp-2 mb-4 group-hover:text-brand! transition-colors">
                                             {camp.title}
                                         </h3>
 
                                         <div className="mt-auto">
-                                            {/* Thanh tiến độ */}
                                             <div className="mb-2">
                                                 <div className="flex justify-between text-sm font-semibold mb-1">
                                                     <span className="text-brand!">{formatMoney(current)}</span>
@@ -141,13 +171,6 @@ const HomePage = () => {
                                                 <span>Mục tiêu: {formatMoney(target)}</span>
                                                 <span className="font-medium text-cta!">{daysLeft} ngày còn lại</span>
                                             </div>
-
-                                            {/* Nút hành động */}
-                                            {/* <Link to={`/campaigns/${camp.id}/donate`}>
-                                            <Button type="primary" className="w-full bg-primary! hover:bg-brand! text-white! font-bold h-12 rounded-xl transition-colors">
-                                                QUYÊN GÓP
-                                            </Button>
-                                        </Link> */}
                                         </div>
                                     </div>
                                 </Link>
@@ -156,7 +179,6 @@ const HomePage = () => {
                     })}
                 </div>
             </section>
-
         </div>
     );
 };

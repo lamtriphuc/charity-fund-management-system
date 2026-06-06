@@ -11,6 +11,10 @@ import { LedgerLine } from "../ledger/entities/ledger-line.entity";
 
 import * as crypto from 'crypto';
 import { CampaignStatus } from "../campaigns/dto/campaign.dto";
+import { NotificationType } from "../system/entities/notification.entity";
+import { NotificationService } from "../system/notification.service";
+import { AuditLogService } from "../audit/audit-log.service";
+import { AuditLogSeverity, AuditLogStatus } from "../audit/dto/create-audit-log.dto";
 
 @Injectable()
 export class ReconciliationService {
@@ -23,17 +27,20 @@ export class ReconciliationService {
         @InjectRepository(Disbursement) private readonly disbursementRepository: Repository<Disbursement>,
         @InjectRepository(LedgerTransaction) private readonly ledgerTransactionRepository: Repository<LedgerTransaction>,
         @InjectRepository(LedgerLine) private readonly ledgerLineRepository: Repository<LedgerLine>,
+        private readonly notificationService: NotificationService,
+        private readonly auditLogService: AuditLogService,
     ) { }
 
-    @Cron(CronExpression.EVERY_10_SECONDS)
+    // @Cron(CronExpression.EVERY_10_SECONDS)
+    @Cron(CronExpression.EVERY_HOUR)
     async handleReconciliation() {
         this.logger.log('Bắt đầu tiến trình Đối soát Kế toán tự động...');
 
         try {
-            // --- BƯỚC 1: XÁC THỰC TÍNH TOÀN VẸN CỦA CHUỖI HASH (LEDGER VERIFICATION) ---
-            // Nếu chuỗi Hash bị gãy, khóa toàn bộ hệ thống ngay lập tức!
+            // --- XÁC THỰC TÍNH TOÀN VẸN CỦA CHUỖI HASH (LEDGER VERIFICATION) ---
             const allLedgerTxs = await this.ledgerTransactionRepository.find({
-                order: { createdAt: 'ASC' } // Bắt buộc quét từ cũ nhất đến mới nhất
+                relations: ['lines', 'lines.account'],
+                order: { createdAt: 'ASC' }
             });
 
             let expectedPreviousHash = 'GENESIS_HASH_0000000000000000';
@@ -41,27 +48,27 @@ export class ReconciliationService {
             let brokenTxId: string | null = null;
 
             for (const tx of allLedgerTxs) {
-                // 1. Kiểm tra "móc xích": Hash trước của block này có khớp với Hash của block trước không?
                 if (tx.previousHash !== expectedPreviousHash) {
                     isLedgerBroken = true;
                     brokenTxId = tx.id;
                     this.logger.error(`\n GÃY CHUỖI HASH TẠI GIAO DỊCH: ${tx.id}`);
-                    this.logger.error(`Kỳ vọng PreviousHash: ${expectedPreviousHash}`);
-                    this.logger.error(`Thực tế trong DB: ${tx.previousHash}`);
-                    break; // Dừng kiểm tra ngay khi phát hiện lỗi
+                    break;
                 }
 
-                // 2. Kiểm tra "ruột" (Dữ liệu bên trong có bị sửa không?)
-                // Lấy lại các bút toán (entries) của giao dịch này
-                const lines = await this.ledgerLineRepository.find({
-                    where: { ledgerTransaction: { id: tx.id } },
-                    relations: ['account']
-                });
+                // Tái tạo lại payload hệt như lúc lưu (Bắt buộc dùng accountCode)
+                const entries = tx.lines.map(l => ({
+                    accountCode: l.account.code,
+                    isDebit: l.isDebit,
+                    amount: Number(l.amount)
+                }));
+                const sortedEntries = entries.sort((a, b) => a.accountCode.localeCompare(b.accountCode));
 
-                // Tái tạo lại payload hệt như lúc lưu
-                const entries = lines.map(l => ({ accountId: l.account.id, isDebit: l.isDebit, amount: Number(l.amount) }));
-                const sortedEntries = entries.sort((a, b) => a.accountId.localeCompare(b.accountId));
-                const payload = JSON.stringify({ referenceType: tx.referenceType, referenceId: tx.referenceId, entries: sortedEntries });
+                const payload = JSON.stringify({
+                    referenceType: tx.referenceType,
+                    referenceId: tx.referenceId,
+                    description: tx.description,
+                    entries: sortedEntries
+                });
 
                 // Tính toán lại mã Hash từ dữ liệu hiện tại trong DB
                 const recalculatedHash = this.generateHash(payload, tx.previousHash);
@@ -69,96 +76,144 @@ export class ReconciliationService {
                 if (recalculatedHash !== tx.currentHash) {
                     isLedgerBroken = true;
                     brokenTxId = tx.id;
-                    this.logger.error(`\n DỮ LIỆU SỔ CÁI BỊ CHỈNH SỬA TẠI GIAO DỊCH: ${tx.id}`);
-                    this.logger.error(`Mã Hash gốc: ${tx.currentHash}`);
-                    this.logger.error(`Mã Hash tính lại: ${recalculatedHash}`);
+                    this.logger.error(`\n DỮ LIỆU SỔ CÁI BỊ CHỈNH SỬA TRÁI PHÉP TẠI GIAO DỊCH: ${tx.id}`);
                     break;
                 }
 
-                // Cập nhật lại expectedPreviousHash cho vòng lặp tiếp theo
                 expectedPreviousHash = tx.currentHash;
             }
 
             if (isLedgerBroken) {
-                this.logger.error(` ĐÃ PHONG TỎA TOÀN BỘ HỆ THỐNG DO SỔ CÁI BỊ TẤN CÔNG (ID: ${brokenTxId})!\n`);
-                // TODO: Gửi cảnh báo đỏ cho Admin/Auditor, ngắt kết nối thanh toán...
-                return; // Dừng ngay lập tức, không đối soát số dư nữa vì Sổ cái đã bị ô nhiễm
+                this.logger.error(`SỔ CÁI BỊ TẤN CÔNG (ID: ${brokenTxId})!`);
+
+                await this.auditLogService.log({
+                    actorId: 'SYSTEM',
+                    actorEmail: null,
+                    actorRole: 'CRON_JOB',
+                    action: 'LEDGER_HASH_CHECK_FAILED',
+                    entity: 'LEDGER_TRANSACTION',
+                    entityId: brokenTxId,
+                    before: null,
+                    after: null,
+                    metadata: {
+                        brokenTxId,
+                        reason: 'LEDGER_HASH_CHAIN_BROKEN',
+                    },
+                    ipAddress: null,
+                    userAgent: 'RECONCILIATION_CRON',
+                    status: AuditLogStatus.FAILED,
+                    severity: AuditLogSeverity.CRITICAL,
+                });
+
+                await this.notificationService.notifyUsersByRole(
+                    ['SUPER_ADMIN', 'ADMIN', 'AUDITOR'],
+                    '[KHẨN CẤP] SỔ CÁI BỊ TẤN CÔNG',
+                    `Hệ thống phát hiện chuỗi Hash của sổ cái bị gãy tại ID: ${brokenTxId}. Dữ liệu Database đã bị can thiệp trái phép trực tiếp. Toàn bộ tiến trình tự động đã bị phong tỏa!`,
+                    NotificationType.URGENT,
+                    '/admin/ledger',
+                    true
+                );
+
+                return;
             }
 
-
-
-            // --- BƯỚC 2: TIẾN HÀNH ĐỐI SOÁT CHÉO 3 GÓC (TRIANGULATION) ---
-
-
+            // Đối soát chiến dich
             // Lấy tất cả chiến dịch đang Active
             const campaigns = await this.campaignRepository.find({
                 where: { status: CampaignStatus.ACTIVE }
             });
 
             for (const campaign of campaigns) {
-                if (!campaign.fundAccountId) continue;
-
-                // --- LẤY SỐ LIỆU TỪ 3 NGUỒN KHÁC NHAU ---
-
-                // Nguồn 1: sổ cái
+                // Nguồn 1: Ledger
                 const fundAccount = await this.accountRepository.findOne({
-                    where: { id: campaign.fundAccountId }
+                    where: { code: `CAMP_${campaign.id}_FUND` }
                 });
-                if (!fundAccount) {
-                    this.logger.error(`[CRITICAL] Không tìm thấy Tài khoản Kế toán của Campaign ID: ${campaign.id}`);
-                    continue;
-                }
-                const ledgerBalance = Number(fundAccount.balance);
 
-                // Nguồn 2: Dữ liệu hiển thị (App hiển thị cho người dùng)
-                const displayBalance = Number(campaign.currentAmount);
+                const ledgerFundBalance = Number(fundAccount?.balance || 0);
 
-                // Nguồn 3: CỘNG DỒN TỪ CHỨNG TỪ GỐC (Trực tiếp từ Database)
-                // a. Tổng tiền Quyên góp vào
+                const displayTotalRaised = Number(campaign.currentAmount);
+
+                // 3. Dữ liệu từ Chứng từ gốc (Database gốc)
                 const { totalIn } = await this.donationRepository
                     .createQueryBuilder('donation')
                     .select('SUM(donation.amount)', 'totalIn')
-                    .where('donation.campaign_id = :id AND donation.status = :status', { id: campaign.id, status: 'SUCCESS' })
+                    .where('donation.campaign_id = :id AND donation.status = :status', {
+                        id: campaign.id,
+                        status: 'SUCCESS',
+                    })
                     .getRawOne();
 
-                // b. Tổng tiền Giải ngân ra
+                const actualTotalDonations = Number(totalIn || 0);
+
                 const { totalOut } = await this.disbursementRepository
                     .createQueryBuilder('disbursement')
                     .select('SUM(disbursement.amount)', 'totalOut')
-                    .where('disbursement.campaign_id = :id AND disbursement.status = :status', { id: campaign.id, status: 'TRANSFERRED' })
+                    .where('disbursement.campaign_id = :id AND disbursement.status = :status', {
+                        id: campaign.id,
+                        status: 'TRANSFERRED',
+                    })
                     .getRawOne();
 
-                // Tính toán số dư thực tế từ chứng từ gốc
-                const actualDocumentBalance = Number(totalIn || 0) - Number(totalOut || 0);
+                const actualTotalDisbursements = Number(totalOut || 0);
 
-
+                const expectedFundBalance = actualTotalDonations - actualTotalDisbursements;
 
                 let isTampered = false;
                 let alertMessage = '';
 
-                // Check 1: Sổ cái có khớp với App không
-                if (Math.abs(ledgerBalance - displayBalance) > 0.01) {
+                if (Math.abs(actualTotalDonations - displayTotalRaised) > 0.01) {
                     isTampered = true;
-                    alertMessage += `\n Lệch Sổ cái (${ledgerBalance}) vs App (${displayBalance})`;
+                    alertMessage += `\n Lệch tổng quyên góp: Donations (${actualTotalDonations}) vs Campaign.currentAmount (${displayTotalRaised})`;
                 }
 
-                // Check 2: Chứng từ gốc có khớp với App không? (Bắt lỗi bạn vừa hack)
-                if (Math.abs(actualDocumentBalance - displayBalance) > 0.01) {
+                if (Math.abs(ledgerFundBalance - expectedFundBalance) > 0.01) {
                     isTampered = true;
-                    alertMessage += `\n Chứng từ gốc bị sửa đổi! Tổng thực tế: ${actualDocumentBalance} vs App: ${displayBalance}`;
+                    alertMessage += `\n Lệch số dư quỹ: Ledger FUND (${ledgerFundBalance}) vs Donations - Disbursements (${expectedFundBalance})`;
                 }
 
-                // --- BƯỚC 3: XỬ LÝ NẾU PHÁT HIỆN GIAN LẬN ---
                 if (isTampered) {
-                    this.logger.error(`\n PHÁT HIỆN GIAN LẬN TẠI CHIẾN DỊCH: [${campaign.title}]`);
-                    this.logger.error(alertMessage);
+                    const before = {
+                        status: campaign.status,
+                    };
 
                     campaign.status = CampaignStatus.SUSPENDED;
-                    await this.campaignRepository.save(campaign);
-                    this.logger.warn(` Đã KHÓA chiến dịch ${campaign.id} để phong tỏa tài sản.\n`);
-                }
+                    const savedCampaign = await this.campaignRepository.save(campaign);
 
-                // TODO (Tương lai): Gửi Email/SMS khẩn cấp cho BAN KIỂM SOÁT (AUDITOR)
+                    await this.auditLogService.log({
+                        actorId: 'SYSTEM',
+                        actorEmail: null,
+                        actorRole: 'CRON_JOB',
+                        action: 'RECONCILIATION_FAILED',
+                        entity: 'CAMPAIGN',
+                        entityId: savedCampaign.id,
+                        before,
+                        after: {
+                            status: savedCampaign.status,
+                        },
+                        metadata: {
+                            campaignTitle: savedCampaign.title,
+                            ledgerFundBalance,
+                            actualTotalDonations,
+                            actualTotalDisbursements,
+                            expectedFundBalance,
+                            displayTotalRaised,
+                            alertMessage,
+                        },
+                        ipAddress: null,
+                        userAgent: 'RECONCILIATION_CRON',
+                        status: AuditLogStatus.FAILED,
+                        severity: AuditLogSeverity.CRITICAL,
+                    });
+
+                    await this.notificationService.notifyUsersByRole(
+                        ['SUPER_ADMIN', 'AUDITOR'],
+                        'PHÁT HIỆN RÒ RỈ QUỸ',
+                        `Phát hiện sai lệch số dư tại chiến dịch "${campaign.title}". Hệ thống đã tự động khóa chiến dịch để bảo vệ tài sản. Chi tiết: ${alertMessage}`,
+                        NotificationType.URGENT,
+                        `/admin/campaigns/${campaign.id}`,
+                        true
+                    );
+                }
             }
 
             this.logger.log(' Hoàn tất tiến trình Đối soát.');

@@ -1,28 +1,32 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Campaign } from './entities/campaign.entity';
-import { CampaignUpdate } from './entities/campaign-update.entity';
 import { CampaignController } from './campaign.controller';
 import { CampaignService } from './campaign.service';
 import { User } from '../users/entities/user.entity';
-import { CampaignUpdatesController } from './campaign-updates.controller';
-import { CampaignUpdatesService } from './campaign-updates.service';
 import { Account } from '../ledger/entities/account.entity';
 import { SearchModule } from '../search/search.module';
+import { CloudinaryModule } from 'src/common/cloudinary/cloudinary.module';
+import { LedgerService } from '../ledger/ledger.service';
+import { LedgerLine } from '../ledger/entities/ledger-line.entity';
+import { SystemModule } from '../system/system.module';
+import { AuditLogModule } from '../audit/audit-log.module';
 
 @Module({
     imports: [
         SearchModule,
-        TypeOrmModule.forFeature([Campaign, CampaignUpdate, User, Account])
+        CloudinaryModule,
+        SystemModule,
+        AuditLogModule,
+        TypeOrmModule.forFeature([Campaign, User, Account, LedgerLine])
     ],
     controllers: [
         CampaignController,
-        CampaignUpdatesController
     ],
     providers: [
+        LedgerService,
         CampaignService,
-        CampaignUpdatesService,
     ],
-    exports: [CampaignService]
+    exports: [CampaignService, TypeOrmModule]
 })
 export class CampaignsModule { }

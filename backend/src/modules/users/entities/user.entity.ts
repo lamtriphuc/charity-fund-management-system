@@ -1,6 +1,9 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, Relation, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, type Relation, UpdateDateColumn } from "typeorm";
 import { Role } from "./role.entity";
-import { UserKycStatus } from "../dto/user.dto";
+import { UserAccountStatus, UserKycStatus } from "../dto/user.dto";
+import { Campaign } from "src/modules/campaigns/entities/campaign.entity";
+import { Disbursement } from "src/modules/disbursements/entities/disbursement.entity";
+import { KycProfile } from "./kyc-profile.entity";
 
 
 @Entity('users')
@@ -15,7 +18,7 @@ export class User {
     @Column({ type: 'varchar', unique: true })
     email: string;
 
-    @Column({ name: 'hashed_password', type: 'varchar' })
+    @Column({ name: 'hashed_password', type: 'varchar', nullable: true })
     hashedPassword: string;
 
     @Column({ name: 'full_name', type: 'varchar' })
@@ -53,6 +56,27 @@ export class User {
 
     @Column({ name: 'refresh_token', type: 'varchar', nullable: true })
     refreshToken: string | null;
+
+    // 1 User tạo ra nhiều Chiến dịch
+    @OneToMany(() => Campaign, campaign => campaign.createdBy)
+    campaigns: Relation<Campaign>[];
+
+    // 1 Admin duyệt nhiều Chiến dịch
+    @OneToMany(() => Campaign, campaign => campaign.approvedBy)
+    approvedCampaigns: Relation<Campaign>[];
+
+    @OneToMany(() => Disbursement, disbursement => disbursement.approvedBy)
+    approvedDisbursements: Relation<Disbursement>[];
+
+    // 1 User (TNV) có nhiều Phiếu rút tiền
+    @OneToMany(() => Disbursement, disbursement => disbursement.volunteer)
+    disbursements: Relation<Disbursement>[];
+
+    @Column({ type: 'enum', enum: UserAccountStatus, default: UserAccountStatus.ACTIVE })
+    status: UserAccountStatus;
+
+    @OneToMany(() => KycProfile, kycProfile => kycProfile.user)
+    kycProfiles: Relation<KycProfile>[];
 
     @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
     createdAt: Date;

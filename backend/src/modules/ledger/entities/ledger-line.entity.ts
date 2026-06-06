@@ -1,6 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, Relation } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, type Relation } from 'typeorm';
 import { LedgerTransaction } from './ledger-transaction.entity';
-import { Account } from './account.entity';
+import { Account, ColumnNumericTransformer } from './account.entity';
 
 @Entity('ledger_lines')
 export class LedgerLine {
@@ -9,7 +9,7 @@ export class LedgerLine {
 
     @ManyToOne(() => LedgerTransaction)
     @JoinColumn({ name: 'ledger_transaction_id' })
-    ledgerTransaction: LedgerTransaction;
+    ledgerTransaction: Relation<LedgerTransaction>;
 
     @ManyToOne(() => Account)
     @JoinColumn({ name: 'account_id' })
@@ -18,6 +18,6 @@ export class LedgerLine {
     @Column({ name: 'is_debit', type: 'boolean' })
     isDebit: boolean;
 
-    @Column({ type: 'bigint' })
+    @Column({ type: 'bigint', transformer: ColumnNumericTransformer })
     amount: number;
 }

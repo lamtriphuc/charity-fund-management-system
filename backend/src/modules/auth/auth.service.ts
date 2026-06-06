@@ -9,6 +9,8 @@ import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { Role } from '../users/entities/role.entity';
 import { OAuth2Client } from 'google-auth-library';
 import { RoleName } from '../users/dto/user.dto';
+import { AuditLogService } from '../audit/audit-log.service';
+import { AuditLogSeverity, AuditLogStatus } from '../audit/dto/create-audit-log.dto';
 
 @Injectable()
 export class AuthService {
@@ -17,14 +19,15 @@ export class AuthService {
     constructor(
         @InjectRepository(User) private readonly userRepository: Repository<User>,
         @InjectRepository(Role) private readonly roleRepository: Repository<Role>,
+        private readonly auditLogService: AuditLogService,
         private jwtService: JwtService,
         private configService: ConfigService
     ) {
         this.googleClient = new OAuth2Client(this.configService.getOrThrow<string>('GOOGLE_CLIENT_ID'));
     }
 
-    private async getTokens(userId: string, email: string, role: string) {
-        const payload = { sub: userId, email, role };
+    private async getTokens(userId: string, email: string, role: string, permissions: string[]) {
+        const payload = { sub: userId, email, role, permissions };
 
         const [accessToken, refreshToken] = await Promise.all([
             this.jwtService.signAsync(payload, {
@@ -70,21 +73,110 @@ export class AuthService {
         return { message: 'Đăng ký thành công' }
     }
 
-    async login(dto: LoginDto) {
+    async login(
+        dto: LoginDto,
+        requestInfo: {
+            ipAddress?: string | null;
+            userAgent?: string | null;
+        },
+    ) {
         const user = await this.userRepository.findOne({
             where: { email: dto.email }, relations: ['role']
         });
 
-        if (!user || !(await bcrypt.compare(dto.password, user.hashedPassword))) {
+        if (!user) {
+            await this.auditLogService.log({
+                actorId: 'anonymous',
+                actorEmail: dto.email,
+                actorRole: 'GUEST',
+                action: 'LOGIN_FAILED',
+                entity: 'AUTH',
+                entityId: null,
+                metadata: {
+                    reason: 'USER_NOT_FOUND',
+                },
+                ipAddress: requestInfo.ipAddress,
+                userAgent: requestInfo.userAgent,
+                status: AuditLogStatus.FAILED,
+                severity: AuditLogSeverity.WARN,
+            });
+
             throw new UnauthorizedException('Sai email hoặc mật khẩu');
         }
 
-        const roleName = user.role?.name || 'Donors';
-        const tokens = await this.getTokens(user.id, user.email, roleName);
+        if (user.status === 'BLOCKED') {
+            await this.auditLogService.log({
+                actorId: user.id,
+                actorEmail: user.email,
+                actorRole: user.role?.name || RoleName.DONOR,
+                action: 'LOGIN_BLOCKED',
+                entity: 'AUTH',
+                entityId: user.id,
+                metadata: {
+                    reason: 'ACCOUNT_BLOCKED',
+                },
+                ipAddress: requestInfo.ipAddress,
+                userAgent: requestInfo.userAgent,
+                status: AuditLogStatus.FAILED,
+                severity: AuditLogSeverity.WARN,
+            });
+
+            throw new ForbiddenException('Tài khoản của bạn đã bị khóa. Vui lòng liên hệ Admin.');
+        }
+
+        const isPasswordValid = await bcrypt.compare(
+            dto.password,
+            user.hashedPassword,
+        );
+
+        if (!isPasswordValid) {
+            await this.auditLogService.log({
+                actorId: user.id,
+                actorEmail: user.email,
+                actorRole: user.role?.name || RoleName.DONOR,
+                action: 'LOGIN_FAILED',
+                entity: 'AUTH',
+                entityId: user.id,
+                metadata: {
+                    reason: 'INVALID_PASSWORD',
+                },
+                ipAddress: requestInfo.ipAddress,
+                userAgent: requestInfo.userAgent,
+                status: AuditLogStatus.FAILED,
+                severity: AuditLogSeverity.WARN,
+            });
+
+            throw new UnauthorizedException('Sai email hoặc mật khẩu');
+        }
+
+
+        const roleName = user.role?.name || RoleName.DONOR;
+        const permissions = user.role?.permissions || [];
+
+        const tokens = await this.getTokens(user.id, user.email, roleName, permissions);
 
         await this.updateRefreshToken(user.id, tokens.refreshToken);
 
-        return { ...tokens, user: { id: user.id, email: user.email, role: roleName, avatar: user.avatarUrl } };
+        await this.auditLogService.log({
+            actorId: user.id,
+            actorEmail: user.email,
+            actorRole: roleName,
+            action: 'LOGIN_SUCCESS',
+            entity: 'AUTH',
+            entityId: user.id,
+            metadata: {
+                method: 'PASSWORD',
+            },
+            ipAddress: requestInfo.ipAddress,
+            userAgent: requestInfo.userAgent,
+            status: AuditLogStatus.SUCCESS,
+            severity: AuditLogSeverity.INFO,
+        });
+
+        return {
+            ...tokens,
+            user: { id: user.id, fullName: user.fullName, email: user.email, role: roleName, permissions, avatar: user.avatarUrl }
+        };
     }
 
     async logout(userId: string) {
@@ -100,64 +192,219 @@ export class AuthService {
 
         // So sánh token client gửi lên với token lưu trong DB
         if (!user || !user.refreshToken) throw new ForbiddenException('Truy cập bị từ chối');
+        if (user.status === 'BLOCKED') throw new ForbiddenException('Tài khoản của bạn đã bị khóa.');
+
         const isRtMatches = await bcrypt.compare(refreshToken, user.refreshToken);
         if (!isRtMatches) throw new ForbiddenException('Refresh Token không hợp lệ');
 
-        // Tạo cặp token mới
-        const roleName = user.role?.name || 'Donors';
-        const tokens = await this.getTokens(user.id, user.email, roleName);
+        const roleName = user.role?.name || RoleName.DONOR;
+        const permissions = user.role?.permissions || [];
+
+        const tokens = await this.getTokens(user.id, user.email, roleName, permissions);
         await this.updateRefreshToken(user.id, tokens.refreshToken);
 
         return tokens;
     }
 
-    async googleLogin(idToken: string) {
+    async googleLogin(
+        idToken: string,
+        requestInfo: {
+            ipAddress?: string | null;
+            userAgent?: string | null;
+        },
+    ) {
         try {
             // 1. Xác thực token với Google Server
             const ticket = await this.googleClient.verifyIdToken({
                 idToken: idToken,
                 audience: this.configService.getOrThrow<string>('GOOGLE_CLIENT_ID'),
             });
+
             const payload = ticket.getPayload();
-            if (!payload || !payload.email) throw new UnauthorizedException('Token Google không hợp lệ');
+
+            if (!payload || !payload.email) {
+                await this.auditLogService.log({
+                    actorId: 'anonymous',
+                    actorEmail: null,
+                    actorRole: 'GUEST',
+                    action: 'GOOGLE_LOGIN_FAILED',
+                    entity: 'AUTH',
+                    entityId: null,
+                    metadata: {
+                        reason: 'INVALID_GOOGLE_TOKEN',
+                    },
+                    ipAddress: requestInfo.ipAddress,
+                    userAgent: requestInfo.userAgent,
+                    status: AuditLogStatus.FAILED,
+                    severity: AuditLogSeverity.WARN,
+                });
+
+                throw new UnauthorizedException('Token Google không hợp lệ');
+            }
 
             const { email, name, picture } = payload;
 
-            // 2. Tìm User trong Database
             let user = await this.userRepository.findOne({
-                where: { email }, relations: ['role']
+                where: { email },
+                relations: ['role'],
             });
 
-            // 3. Nếu chưa có tài khoản -> Tự động đăng ký
-            if (!user) {
-                const defaultRole = await this.roleRepository.findOne({ where: { name: RoleName.DONOR } });
-                if (!defaultRole) throw new InternalServerErrorException('Không tìm thấy Role mặc định');
+            let isNewUser = false;
 
-                // Tạo mật khẩu ngẫu nhiên cho user Google (vì họ không dùng pass để login)
-                const randomPassword = await bcrypt.hash(Math.random().toString(36).slice(-10), 10);
+            if (!user) {
+                const defaultRole = await this.roleRepository.findOne({
+                    where: { name: RoleName.DONOR },
+                });
+
+                if (!defaultRole) {
+                    await this.auditLogService.log({
+                        actorId: 'SYSTEM',
+                        actorEmail: email,
+                        actorRole: 'SYSTEM',
+                        action: 'GOOGLE_REGISTER_FAILED',
+                        entity: 'AUTH',
+                        entityId: null,
+                        metadata: {
+                            reason: 'DEFAULT_ROLE_NOT_FOUND',
+                        },
+                        ipAddress: requestInfo.ipAddress,
+                        userAgent: requestInfo.userAgent,
+                        status: AuditLogStatus.FAILED,
+                        severity: AuditLogSeverity.CRITICAL,
+                    });
+
+                    throw new InternalServerErrorException('Không tìm thấy Role mặc định');
+                }
+
+                const randomPassword = await bcrypt.hash(
+                    Math.random().toString(36).slice(-10),
+                    10,
+                );
 
                 user = this.userRepository.create({
                     email,
                     fullName: name,
-                    avatarUrl: picture, // Lấy ảnh từ Google
+                    avatarUrl: picture,
                     hashedPassword: randomPassword,
-                    role: defaultRole
+                    role: defaultRole,
                 });
-                await this.userRepository.save(user);
+
+                user = await this.userRepository.save(user);
+                isNewUser = true;
+
+                await this.auditLogService.log({
+                    actorId: user.id,
+                    actorEmail: user.email,
+                    actorRole: defaultRole.name,
+                    action: 'GOOGLE_REGISTER_SUCCESS',
+                    entity: 'USER',
+                    entityId: user.id,
+                    before: null,
+                    after: {
+                        id: user.id,
+                        email: user.email,
+                        fullName: user.fullName,
+                        role: defaultRole.name,
+                        avatarUrl: user.avatarUrl,
+                    },
+                    metadata: {
+                        provider: 'GOOGLE',
+                    },
+                    ipAddress: requestInfo.ipAddress,
+                    userAgent: requestInfo.userAgent,
+                    status: AuditLogStatus.SUCCESS,
+                    severity: AuditLogSeverity.INFO,
+                });
             }
 
-            // 4. Cấp JWT Token của hệ thống
+            if (user.status === 'BLOCKED') {
+                await this.auditLogService.log({
+                    actorId: user.id,
+                    actorEmail: user.email,
+                    actorRole: user.role?.name || RoleName.DONOR,
+                    action: 'GOOGLE_LOGIN_BLOCKED',
+                    entity: 'AUTH',
+                    entityId: user.id,
+                    metadata: {
+                        reason: 'ACCOUNT_BLOCKED',
+                        provider: 'GOOGLE',
+                    },
+                    ipAddress: requestInfo.ipAddress,
+                    userAgent: requestInfo.userAgent,
+                    status: AuditLogStatus.FAILED,
+                    severity: AuditLogSeverity.WARN,
+                });
+
+                throw new ForbiddenException('Tài khoản của bạn đã bị khóa.');
+            }
+
             const roleName = user.role?.name || RoleName.DONOR;
-            const tokens = await this.getTokens(user.id, user.email, roleName);
+            const permissions = user.role?.permissions || [];
+
+            const tokens = await this.getTokens(
+                user.id,
+                user.email,
+                roleName,
+                permissions,
+            );
+
             await this.updateRefreshToken(user.id, tokens.refreshToken);
 
-            // 5. Trả về giống hệt hàm login() bình thường
+            await this.auditLogService.log({
+                actorId: user.id,
+                actorEmail: user.email,
+                actorRole: roleName,
+                action: 'GOOGLE_LOGIN_SUCCESS',
+                entity: 'AUTH',
+                entityId: user.id,
+                metadata: {
+                    provider: 'GOOGLE',
+                    isNewUser,
+                },
+                ipAddress: requestInfo.ipAddress,
+                userAgent: requestInfo.userAgent,
+                status: AuditLogStatus.SUCCESS,
+                severity: AuditLogSeverity.INFO,
+            });
+
             return {
                 ...tokens,
-                user: { id: user.id, fullName: user.fullName, email: user.email, role: roleName, avatar: user.avatarUrl }
+                user: {
+                    id: user.id,
+                    fullName: user.fullName,
+                    email: user.email,
+                    role: roleName,
+                    permissions,
+                    avatar: user.avatarUrl,
+                },
             };
 
         } catch (error) {
+            console.error(error)
+            if (
+                error instanceof UnauthorizedException ||
+                error instanceof ForbiddenException ||
+                error instanceof InternalServerErrorException
+            ) {
+                throw error;
+            }
+
+            await this.auditLogService.log({
+                actorId: 'anonymous',
+                actorEmail: null,
+                actorRole: 'GUEST',
+                action: 'GOOGLE_LOGIN_FAILED',
+                entity: 'AUTH',
+                entityId: null,
+                metadata: {
+                    reason: 'GOOGLE_VERIFY_ERROR',
+                },
+                ipAddress: requestInfo.ipAddress,
+                userAgent: requestInfo.userAgent,
+                status: AuditLogStatus.FAILED,
+                severity: AuditLogSeverity.WARN,
+            });
+
             throw new UnauthorizedException('Xác thực Google thất bại');
         }
     }

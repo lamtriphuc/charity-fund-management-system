@@ -3,6 +3,7 @@ import { ElasticsearchService } from "@nestjs/elasticsearch";
 import { Campaign } from "../campaigns/entities/campaign.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
+import { IAuditLog } from "../cron/log-archiver.service";
 
 @Injectable()
 export class SearchService implements OnApplicationBootstrap {
@@ -28,7 +29,7 @@ export class SearchService implements OnApplicationBootstrap {
                 this.logger.log(' Đã xóa Index cũ trên Elasticsearch.');
             }
 
-            // 👇 THÊM ĐOẠN NÀY: Chủ động tạo lại một Index mới tinh (dù DB đang trống)
+            // THÊM ĐOẠN NÀY: Chủ động tạo lại một Index mới tinh (dù DB đang trống)
             await this.esService.indices.create({
                 index: 'campaigns',
                 body: {
@@ -50,7 +51,7 @@ export class SearchService implements OnApplicationBootstrap {
                     }
                 }
             });
-            this.logger.log('✨ Đã tạo Index [campaigns] với cấu hình Mapping chuẩn Enterprise.');
+            this.logger.log(' Đã tạo Index [campaigns]');
 
             // 2. Lấy toàn bộ chiến dịch đang có trong PostgreSQL
             const allCampaigns = await this.campaignRepository.find();
@@ -60,7 +61,6 @@ export class SearchService implements OnApplicationBootstrap {
                 return; // Dù return ở đây, nhưng Index rỗng đã được tạo ở trên rồi!
             }
 
-            // 3. Đẩy tất cả lên Elasticsearch
             for (const camp of allCampaigns) {
                 await this.esService.index({
                     index: 'campaigns',
@@ -68,10 +68,15 @@ export class SearchService implements OnApplicationBootstrap {
                     document: {
                         title: camp.title,
                         description: camp.description,
-                        targetAmount: camp.targetAmount,
-                        currentAmount: camp.currentAmount,
-                        status: camp.status,
+                        targetAmount: Number(camp.targetAmount),
+                        currentAmount: Number(camp.currentAmount),
+                        imageUrls: camp.imageUrls,
                         category: camp.category,
+                        status: camp.status,
+                        campaignType: camp.campaignType,
+                        startDate: camp.startDate,
+                        endDate: camp.endDate,
+                        createdAt: camp.createdAt,
                         updatedAt: camp.updatedAt,
                     },
                 });
@@ -80,20 +85,22 @@ export class SearchService implements OnApplicationBootstrap {
             this.logger.log(` Đã đồng bộ thành công ${allCampaigns.length} chiến dịch lên Elasticsearch!`);
 
         } catch (error) {
-            this.logger.error(` Lỗi đồng bộ toàn bộ ES: ${error.message}`);
+            // this.logger.error(` Lỗi đồng bộ toàn bộ ES: ${error.message}`);
         }
     }
 
     async logAction(actionData: any) {
         try {
             const date = new Date();
-            const indexName = `audit-logs-${date.getFullYear()}-${date.getMonth() + 1}`;
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+
+            const indexName = `audit-logs-${date.getFullYear()}-${month}`;
 
             await this.esService.index({
                 index: indexName,
                 document: {
                     ...actionData,
-                    timestamp: new Date().toISOString()
+                    timestamp: actionData.timestamp ?? new Date().toISOString(),
                 }
             });
         } catch (error) {
@@ -101,9 +108,59 @@ export class SearchService implements OnApplicationBootstrap {
         }
     }
 
-    async searchAuditLogs(page: number = 1, limit: number = 20) {
+    async searchAuditLogs(page: number = 1, limit: number = 20, keyword?: string, startDate?: string, endDate?: string) {
         try {
             const from = (page - 1) * limit;
+
+            const mustQueries: any[] = [];
+
+            if (startDate && endDate) {
+                mustQueries.push({
+                    range: {
+                        timestamp: {
+                            gte: startDate, // Lớn hơn hoặc bằng
+                            lte: endDate    // Nhỏ hơn hoặc bằng
+                        }
+                    }
+                });
+            }
+
+            // if (keyword && keyword.trim() !== '') {
+            //     // Escape các ký tự đặc biệt của Elasticsearch để tránh lỗi khi người dùng gõ linh tinh
+            //     const safeKeyword = keyword.trim().replace(/[+\-=&|><!(){}\[\]^"~*?:\\/]/g, '\\$&');
+
+            //     mustQueries.push({
+            //         query_string: {
+            //             // Bao bọc keyword bởi dấu * để tìm kiếm chứa (LIKE %keyword%)
+            //             query: `*${safeKeyword}*`,
+            //             // Thêm ip_address vào để họ có thể search theo IP luôn
+            //             fields: ['action', 'actor_email', 'entity', 'entity_id', 'actor_role', 'ip_address']
+            //         }
+            //     });
+            // }
+
+            if (keyword && keyword.trim() !== '') {
+                const kw = keyword.trim();
+
+                mustQueries.push({
+                    bool: {
+                        should: [
+                            { wildcard: { 'actor_email.keyword': { value: `*${kw}*`, case_insensitive: true } } },
+                            { wildcard: { 'actor_role.keyword': { value: `*${kw}*`, case_insensitive: true } } },
+                            { wildcard: { 'action.keyword': { value: `*${kw}*`, case_insensitive: true } } },
+                            { wildcard: { 'entity.keyword': { value: `*${kw}*`, case_insensitive: true } } },
+                            { wildcard: { 'entity_id.keyword': { value: `*${kw}*`, case_insensitive: true } } },
+                            { wildcard: { 'ip_address.keyword': { value: `*${kw}*`, case_insensitive: true } } },
+                            { wildcard: { 'user_agent.keyword': { value: `*${kw}*`, case_insensitive: true } } },
+                        ],
+                        minimum_should_match: 1,
+                    },
+                });
+            }
+
+            const queryBody: any = mustQueries.length > 0
+                ? { bool: { must: mustQueries } }
+                : { match_all: {} };
 
             // Truy vấn vào ES lấy dữ liệu, sắp xếp mới nhất lên đầu
             const result = await this.esService.search({
@@ -111,12 +168,8 @@ export class SearchService implements OnApplicationBootstrap {
                 from: from,
                 size: limit,
                 body: {
-                    query: {
-                        match_all: {} // Tương lai có thể đổi thành truy vấn lọc theo IP, Email...
-                    },
-                    sort: [
-                        { timestamp: { order: 'desc' } }
-                    ]
+                    query: queryBody,
+                    sort: [{ timestamp: { order: 'desc' } }]
                 }
             });
 
@@ -149,14 +202,19 @@ export class SearchService implements OnApplicationBootstrap {
         try {
             await this.esService.index({
                 index: 'campaigns',
-                id: campaign.id.toString(), // Dùng chung ID với PostgreSQL để tránh trùng lặp
+                id: campaign.id.toString(),
                 document: {
                     title: campaign.title,
                     description: campaign.description,
-                    targetAmount: campaign.targetAmount,
-                    currentAmount: campaign.currentAmount,
+                    targetAmount: Number(campaign.targetAmount),
+                    currentAmount: Number(campaign.currentAmount),
                     category: campaign.category,
                     status: campaign.status,
+                    campaignType: campaign.campaignType,
+                    imageUrls: campaign.imageUrls,
+                    startDate: campaign.startDate,
+                    endDate: campaign.endDate,
+                    createdAt: campaign.createdAt,
                     updatedAt: new Date().toISOString(),
                 },
             });
@@ -166,111 +224,81 @@ export class SearchService implements OnApplicationBootstrap {
         }
     }
 
-    // async searchCampaigns(keyword?: string, category?: string) {
-    //     try {
-    //         console.log('\n=== BẮT ĐẦU TÌM KIẾM ES ===');
-    //         console.log(`📥 Đầu vào -> Keyword: "${keyword || ''}" | Category: "${category || ''}"`);
-
-    //         // Khởi tạo điều kiện bắt buộc: Trạng thái ACTIVE
-    //         const mustQueries: any[] = [{ match: { status: 'ACTIVE' } }];
-
-    //         if (category && category !== 'Tất cả') {
-    //             mustQueries.push({ match: { category: category } });
-    //         }
-
-    //         const queryBody: any = {
-    //             bool: {
-    //                 must: mustQueries,
-    //             }
-    //         };
-
-    //         if (keyword && keyword.trim() !== '') {
-    //             queryBody.bool.should = [
-    //                 {
-    //                     multi_match: {
-    //                         query: keyword,
-    //                         fields: ['title^3', 'description'],
-    //                         fuzziness: 'AUTO',
-    //                     }
-    //                 }
-    //             ];
-    //             queryBody.bool.minimum_should_match = 1;
-    //         }
-
-
-    //         const response = await this.esService.search({
-    //             index: 'campaigns',
-    //             size: 100,
-    //             query: { match_all: {} }
-    //             // query: queryBody  <-- Tí nữa có data rồi thì mở lại dòng này
-    //         });
-
-    //         // Lấy data theo chuẩn v8
-    //         const hitsArray = response.hits?.hits || [];
-
-    //         console.log(`✅ Lọc thành công! Tìm thấy ${hitsArray.length} chiến dịch.`);
-
-
-    //         return hitsArray.map(hit => ({
-    //             id: hit._id,
-    //             ...(hit._source as any),
-    //             relevance_score: hit._score
-    //         }));
-
-    //     } catch (error) {
-    //         console.log('\n❌ ES BÁO LỖI CRASH:', error); // Dùng console.log để đảm bảo luôn hiện lỗi đỏ
-    //         return [];
-    //     }
-    // }
-
-    async searchCampaigns(keyword?: string, category?: string, page: any = 1, limit: any = 9) {
+    async searchCampaigns(
+        keyword?: string,
+        category?: string,
+        status?: string,
+        page: any = 1,
+        limit: any = 9
+    ) {
         try {
             const pageNum = Number(page) || 1;
             const limitNum = Number(limit) || 9;
             const from = (pageNum - 1) * limitNum;
 
-            const mustQueries: any[] = [
-                {
-                    terms: { status: ['ACTIVE', 'COMPLETED'] }
-                }
-            ];
+            const normalizedCategory = decodeURIComponent(category || '')
+                .replace(/\+/g, ' ')
+                .trim();
 
-            if (category && category !== 'Tất cả') {
-                mustQueries.push({ match: { category: category } });
+            const normalizedStatus = decodeURIComponent(status || '')
+                .replace(/\+/g, ' ')
+                .trim();
+
+            const mustQueries: any[] = [];
+
+            if (normalizedStatus === 'ALL') {
+                mustQueries.push({
+                    terms: { status: ['ACTIVE', 'COMPLETED'] }
+                });
+            } else if (normalizedStatus && normalizedStatus !== 'ALL') {
+                mustQueries.push({
+                    term: { status: normalizedStatus }
+                });
+            } else {
+                mustQueries.push({
+                    term: { status: 'ACTIVE' }
+                });
             }
 
-            const queryBody: any = {
-                bool: { must: mustQueries }
-            };
+            if (normalizedCategory && normalizedCategory !== 'Tất cả') {
+                mustQueries.push({
+                    term: { category: normalizedCategory }
+                });
+            }
 
             if (keyword && keyword.trim() !== '') {
-                queryBody.bool.must.push({
+                mustQueries.push({
                     multi_match: {
-                        query: keyword,
+                        query: keyword.trim(),
                         fields: ['title', 'description'],
                         fuzziness: 'AUTO'
                     }
                 });
             }
 
-            // GỌI API XUỐNG ES
             const response = await this.esService.search({
                 index: 'campaigns',
-                from: from,
+                from,
                 size: limitNum,
-                query: queryBody
+                query: {
+                    bool: {
+                        must: mustQueries
+                    }
+                },
+                sort: [
+                    { status: { order: 'asc' } },
+                    { createdAt: { order: 'desc' } },
+                    { updatedAt: { order: 'desc' } }
+                ]
             });
 
-            // BÓC TÁCH DỮ LIỆU BẤT CHẤP PHIÊN BẢN (V7 hay V8)
             const rawResponse: any = response;
             const esBody = rawResponse.body ? rawResponse.body : rawResponse;
             const hitsArray = esBody?.hits?.hits || [];
 
             const total = typeof esBody?.hits?.total === 'number'
                 ? esBody.hits.total
-                : (esBody?.hits?.total?.value || 0);
-
-            console.log(`✅ [Search ES] Lọc thành công: Ra ${hitsArray.length} chiến dịch (Tổng: ${total})`);
+                : esBody?.hits?.total?.value || 0;
 
             const data = hitsArray.map((hit: any) => ({
                 id: hit._id,
@@ -278,9 +306,8 @@ export class SearchService implements OnApplicationBootstrap {
                 relevance_score: hit._score
             }));
 
-            // TRẢ VỀ FORMAT FE CẦN
             return {
-                data: data,
+                data,
                 meta: {
                     totalItems: total,
                     itemCount: data.length,
@@ -291,11 +318,54 @@ export class SearchService implements OnApplicationBootstrap {
             };
 
         } catch (error) {
-            console.error('🔥 LỖI TÌM KIẾM ES:', error);
+            console.error('LỖI TÌM KIẾM ES:', error);
+
             return {
                 data: [],
-                meta: { totalItems: 0, itemCount: 0, itemsPerPage: limit, totalPages: 0, currentPage: 1 }
+                meta: {
+                    totalItems: 0,
+                    itemCount: 0,
+                    itemsPerPage: Number(limit) || 9,
+                    totalPages: 0,
+                    currentPage: Number(page) || 1
+                }
             };
         }
+    }
+
+    // Tìm log cũ
+    async getLogsOlderThan(dateString: string): Promise<IAuditLog[]> {
+        const response = await this.esService.search({
+            index: 'audit-logs-*',
+            size: 10000,
+            body: {
+                query: {
+                    range: {
+                        timestamp: {
+                            lt: dateString
+                        }
+                    }
+                }
+            }
+        });
+
+        // Ép kiểu _source về IAuditLog để TypeScript hiểu
+        return response.hits.hits.map(hit => hit._source as IAuditLog);
+    }
+
+    // Xóa log cũ
+    async deleteLogsOlderThan(dateString: string) {
+        await this.esService.deleteByQuery({
+            index: 'audit-logs-*',
+            body: {
+                query: {
+                    range: {
+                        timestamp: {
+                            lt: dateString
+                        }
+                    }
+                }
+            }
+        });
     }
 }

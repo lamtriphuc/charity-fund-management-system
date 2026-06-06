@@ -8,6 +8,8 @@ export enum CloudinaryFolder {
     AVATARS = `${PROJECT_ROOT}/avatars`,
     KYC_DOCUMENTS = `${PROJECT_ROOT}/kyc_documents`,
     DISBURSEMENT_PROOFS = `${PROJECT_ROOT}/disbursement_proofs`,
+    CAMPAIGN_PROOFS = `${PROJECT_ROOT}/campaign_proofs`,
+    AUDIT_ARCHIVES = `${PROJECT_ROOT}/audit_archives`,
 }
 
 @Injectable()
@@ -53,5 +55,29 @@ export class CloudinaryService {
         } catch (error) {
             return null;
         }
+    }
+
+    uploadRawBuffer(
+        buffer: Buffer,
+        fileName: string,
+        folder: string = CloudinaryFolder.AUDIT_ARCHIVES
+    ): Promise<UploadApiResponse | UploadApiErrorResponse> {
+        return new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream(
+                {
+                    folder: folder,
+                    resource_type: 'raw', // BẮT BUỘC để up file JSON/Text
+                    public_id: fileName,  // Đặt tên file cụ thể
+                    format: 'json'        // Đuôi file
+                },
+                (error, result) => {
+                    if (error || !result) return reject(error || 'Upload raw file failed');
+                    resolve(result);
+                },
+            );
+
+            // Bắn trực tiếp Buffer lên mây, không cần ghi file ra ổ cứng server
+            streamifier.createReadStream(buffer).pipe(uploadStream);
+        });
     }
 }

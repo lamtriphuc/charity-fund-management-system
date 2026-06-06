@@ -7,12 +7,18 @@ import { DisbursementController } from './disbursement.controller';
 import { DisbursementService } from './disbursement.service';
 import { CloudinaryModule } from 'src/common/cloudinary/cloudinary.module';
 import { LedgerModule } from '../ledger/ledger.module';
+import { CampaignsModule } from '../campaigns/campaigns.module';
+import { SystemModule } from '../system/system.module';
+import { AuditLogModule } from '../audit/audit-log.module';
 
 @Module({
     imports: [
         CloudinaryModule,
         LedgerModule,
-        TypeOrmModule.forFeature([Disbursement, DisbursementProof, Campaign])
+        CampaignsModule,
+        SystemModule,
+        AuditLogModule,
+        TypeOrmModule.forFeature([Disbursement, DisbursementProof])
     ],
     controllers: [DisbursementController],
     providers: [DisbursementService],

@@ -1,9 +1,9 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { GoogleLoginDto, LoginDto, RegisterDto } from './dto/auth.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { UserService } from '../users/user.service';
@@ -21,8 +21,15 @@ export class AuthController {
     }
 
     @Post('login')
-    async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
-        const loginData = await this.authService.login(dto);
+    async login(
+        @Body() dto: LoginDto,
+        @Req() req: Request,
+        @Res({ passthrough: true }) res: Response
+    ) {
+        const loginData = await this.authService.login(dto, {
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent'] || null,
+        });
         const { accessToken, refreshToken, user } = loginData;
 
         res.cookie('refresh_token', refreshToken, {
@@ -55,6 +62,7 @@ export class AuthController {
         @CurrentUser() user: any,
         @Res({ passthrough: true }) res: Response
     ) {
+        console.log()
         // Thuộc tính refreshToken được nhét vào từ file jwt-refresh.strategy.ts
         const tokens = await this.authService.refreshTokens(user.sub, user.refreshToken);
 
@@ -71,10 +79,15 @@ export class AuthController {
     @Post('google')
     @HttpCode(HttpStatus.OK)
     async googleLogin(
-        @Body('token') token: string,
-        @Res({ passthrough: true }) res: Response // Thêm @Res vào đây
+        @Body('token') idToken: string,
+        @Req() req: Request,
+        @Res({ passthrough: true }) res: Response
     ) {
-        const loginData = await this.authService.googleLogin(token);
+        const loginData = await this.authService.googleLogin(idToken, {
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent'] || null,
+        });
+
         const { accessToken, refreshToken, user } = loginData;
 
         res.cookie('refresh_token', refreshToken, {

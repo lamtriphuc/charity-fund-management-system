@@ -8,10 +8,14 @@ import { User } from '../users/entities/user.entity';
 import { DonationController } from './donation.controller';
 import { DonationService } from './donation.service';
 import { LedgerModule } from '../ledger/ledger.module';
+import { SystemModule } from '../system/system.module';
+import { AuditLogModule } from '../audit/audit-log.module';
 
 @Module({
     imports: [
         LedgerModule,
+        SystemModule,
+        AuditLogModule,
         TypeOrmModule.forFeature([
             Disbursement, DisbursementProof, Donation, Campaign, User
         ])],
